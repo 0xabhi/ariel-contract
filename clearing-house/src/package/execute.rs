@@ -48,21 +48,21 @@ pub enum ExecuteMsg {
     },
 
     // order related messages
-    PlaceOrder {
-        order: OrderParams,
-    },
-    CancelOrder {
-        market_index: u64,
-        order_id: u64,
-    },
-    ExpireOrders {
-        user_address: String,
-    },
-    FillOrder {
-        order_id: u64,
-        user_address: String,
-        market_index: u64,
-    },
+    // PlaceOrder {
+    //     order: OrderParams,
+    // },
+    // CancelOrder {
+    //     market_index: u64,
+    //     order_id: u64,
+    // },
+    // ExpireOrders {
+    //     user_address: String,
+    // },
+    // FillOrder {
+    //     order_id: u64,
+    //     user_address: String,
+    //     market_index: u64,
+    // },
     Liquidate {
         user: String,
         market_index: u64,

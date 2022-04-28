@@ -22,9 +22,8 @@ use crate::package::helper::assert_sent_uusd_balance;
 use crate::package::helper::query_balance;
 use crate::package::helper::VaultInterface;
 use crate::package::number::Number128;
-use crate::package::types::OrderType;
 use crate::package::types::{
-    DepositDirection, OrderParams, PositionDirection,
+    DepositDirection, PositionDirection,
 };
 use cosmwasm_std::{
     coins, to_binary, CosmosMsg, DepsMut, Env, Fraction, MessageInfo, Response, Uint128,
@@ -616,81 +615,81 @@ pub fn try_close_position(
 }
 
 //new limit order interfaces
-pub fn try_place_order(
-    mut deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    order: OrderParams,
-) -> Result<Response, ContractError> {
-    let now = env.block.time.seconds();
-    let user_address = info.sender.clone();
-    let state = STATE.load(deps.storage)?;
-    let oracle = state.oracle;
-    if order.order_type == OrderType::Market {
-        return Err(ContractError::MarketOrderMustBeInPlaceAndFill.into());
-    }
+// pub fn try_place_order(
+//     mut deps: DepsMut,
+//     env: Env,
+//     info: MessageInfo,
+//     order: OrderParams,
+// ) -> Result<Response, ContractError> {
+//     let now = env.block.time.seconds();
+//     let user_address = info.sender.clone();
+//     let state = STATE.load(deps.storage)?;
+//     let oracle = state.oracle;
+//     if order.order_type == OrderType::Market {
+//         return Err(ContractError::MarketOrderMustBeInPlaceAndFill.into());
+//     }
 
-    controller::order::place_order(&mut deps, &user_address, now, order, &oracle)?;
-    Ok(Response::new().add_attribute("method", "try_place_order"))
-}
+//     controller::order::place_order(&mut deps, &user_address, now, order, &oracle)?;
+//     Ok(Response::new().add_attribute("method", "try_place_order"))
+// }
 
-pub fn try_cancel_order(
-    mut deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    market_index: u64,
-    order_id: u64,
-) -> Result<Response, ContractError> {
-    let now = env.block.time.seconds();
-    let state = STATE.load(deps.storage)?;
-    let oracle = state.oracle;
-    controller::order::cancel_order(
-        &mut deps,
-        &info.sender.clone(),
-        market_index,
-        order_id,
-        &oracle,
-        now,
-    )?;
-    Ok(Response::new().add_attribute("method", "try_cancel_order"))
-}
+// pub fn try_cancel_order(
+//     mut deps: DepsMut,
+//     env: Env,
+//     info: MessageInfo,
+//     market_index: u64,
+//     order_id: u64,
+// ) -> Result<Response, ContractError> {
+//     let now = env.block.time.seconds();
+//     let state = STATE.load(deps.storage)?;
+//     let oracle = state.oracle;
+//     controller::order::cancel_order(
+//         &mut deps,
+//         &info.sender.clone(),
+//         market_index,
+//         order_id,
+//         &oracle,
+//         now,
+//     )?;
+//     Ok(Response::new().add_attribute("method", "try_cancel_order"))
+// }
 
 //todo who is filler? is sender is filler and passing the user address?
-pub fn try_expire_orders(
-    mut deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    user_address: String,
-) -> Result<Response, ContractError> {
-    let now = env.block.time.seconds();
-    let user_address = addr_validate_to_lower(deps.api, &user_address.to_string())?;
-    controller::order::expire_orders(&mut deps, &user_address, now, &info.sender.clone())?;
-    Ok(Response::new().add_attribute("method", "try_expire_orders"))
-}
+// pub fn try_expire_orders(
+//     mut deps: DepsMut,
+//     env: Env,
+//     info: MessageInfo,
+//     user_address: String,
+// ) -> Result<Response, ContractError> {
+//     let now = env.block.time.seconds();
+//     let user_address = addr_validate_to_lower(deps.api, &user_address.to_string())?;
+//     controller::order::expire_orders(&mut deps, &user_address, now, &info.sender.clone())?;
+//     Ok(Response::new().add_attribute("method", "try_expire_orders"))
+// }
 
-pub fn try_fill_order(
-    mut deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    order_id: u64,
-    user_address: String,
-    market_index: u64,
-) -> Result<Response, ContractError> {
-    let now = env.block.time.seconds();
-    let user_address = addr_validate_to_lower(deps.api, &user_address.to_string())?;
-    let base_asset_amount = controller::order::fill_order(
-        &mut deps,
-        &user_address,
-        &info.sender.clone(),
-        market_index,
-        order_id,
-        now,
-    )?;
-    if base_asset_amount.is_zero() {
-        return Err(ContractError::CouldNotFillOrder);
-    }
-    Ok(Response::new().add_attribute("method", "try_fill_order"))
-}
+// pub fn try_fill_order(
+//     mut deps: DepsMut,
+//     env: Env,
+//     info: MessageInfo,
+//     order_id: u64,
+//     user_address: String,
+//     market_index: u64,
+// ) -> Result<Response, ContractError> {
+//     let now = env.block.time.seconds();
+//     let user_address = addr_validate_to_lower(deps.api, &user_address.to_string())?;
+//     let base_asset_amount = controller::order::fill_order(
+//         &mut deps,
+//         &user_address,
+//         &info.sender.clone(),
+//         market_index,
+//         order_id,
+//         now,
+//     )?;
+//     if base_asset_amount.is_zero() {
+//         return Err(ContractError::CouldNotFillOrder);
+//     }
+//     Ok(Response::new().add_attribute("method", "try_fill_order"))
+// }
 
 //todo later
 

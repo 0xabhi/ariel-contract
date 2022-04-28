@@ -172,19 +172,19 @@ pub fn execute(
             market_index,
             limit_price,
         ),
-        ExecuteMsg::PlaceOrder { order } => try_place_order(deps, _env, info, order),
-        ExecuteMsg::CancelOrder {
-            market_index,
-            order_id,
-        } => try_cancel_order(deps, _env, info, market_index, order_id),
-        ExecuteMsg::ExpireOrders { user_address } => {
-            try_expire_orders(deps, _env, info, user_address)
-        }
-        ExecuteMsg::FillOrder {
-            order_id,
-            user_address,
-            market_index,
-        } => try_fill_order(deps, _env, info, order_id, user_address, market_index),
+        // ExecuteMsg::PlaceOrder { order } => try_place_order(deps, _env, info, order),
+        // ExecuteMsg::CancelOrder {
+        //     market_index,
+        //     order_id,
+        // } => try_cancel_order(deps, _env, info, market_index, order_id),
+        // ExecuteMsg::ExpireOrders { user_address } => {
+        //     try_expire_orders(deps, _env, info, user_address)
+        // }
+        // ExecuteMsg::FillOrder {
+        //     order_id,
+        //     user_address,
+        //     market_index,
+        // } => try_fill_order(deps, _env, info, order_id, user_address, market_index),
         ExecuteMsg::ClosePosition { market_index } => {
             try_close_position(deps, _env, info, market_index)
         }
