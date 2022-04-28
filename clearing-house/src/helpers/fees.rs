@@ -2,7 +2,7 @@ use std::cmp::{max, min};
 
 use cosmwasm_std::{Addr, Uint128, Fraction, Decimal};
 
-use crate::states::order::OrderState;
+use crate::states::state::OrderState;
 use crate::{error::ContractError};
 
 use num::integer::Roots;

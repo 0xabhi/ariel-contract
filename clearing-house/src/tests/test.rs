@@ -213,11 +213,11 @@ pub fn test_deposit_withdraw() {
     let res = query(
         deps.as_ref(),
         mock_env(),
-        QueryMsg::GetDepositHistoryLength {},
+        QueryMsg::GetLength {  },
     )
     .unwrap();
-    let value: DepositHistoryLengthResponse = from_binary(&res).unwrap();
-    assert_eq!(1, value.length);
+    let value: LengthResponse = from_binary(&res).unwrap();
+    assert_eq!(1, value.deposit_history_length);
 
     let res = query(
         deps.as_ref(),
@@ -252,11 +252,11 @@ pub fn test_deposit_withdraw() {
     let res = query(
         deps.as_ref(),
         mock_env(),
-        QueryMsg::GetDepositHistoryLength {},
+        QueryMsg::GetLength {},
     )
     .unwrap();
-    let value: DepositHistoryLengthResponse = from_binary(&res).unwrap();
-    assert_eq!(2, value.length);
+    let value: LengthResponse = from_binary(&res).unwrap();
+    assert_eq!(2, value.deposit_history_length);
 
     let res = query(
         deps.as_ref(),
@@ -447,10 +447,10 @@ pub fn test_open_position() {
     let res = query(
         deps.as_ref(),
         mock_env(),
-        QueryMsg::GetTradeHistoryLength {},
+        QueryMsg::GetLength {},
     )
     .unwrap();
-    let value: TradeHistoryLengthResponse = from_binary(&res).unwrap();
+    let value: LengthResponse = from_binary(&res).unwrap();
     // assert_eq!(1, value.length);
 
     // get trade_history

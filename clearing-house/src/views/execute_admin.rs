@@ -5,9 +5,10 @@ use crate::states::history::*;
 use crate::ContractError;
 
 use crate::states::market::{Amm, Market, MARKETS};
-use crate::states::order::OrderState;
+use crate::states::state::OrderState;
 use crate::states::state::LENGTH;
 use crate::states::state::Length;
+use crate::states::state::ORDERSTATE;
 use crate::states::state::State;
 use crate::states::state::ADMIN;
 use crate::states::state::FEESTRUCTURE;

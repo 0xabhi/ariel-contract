@@ -8,13 +8,6 @@ use cosmwasm_std::{Addr, Decimal, Uint128};
 use cw_storage_plus::{Item, Map};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct OrderState {
-    pub min_order_quote_asset_amount: Uint128, 
-    pub reward: Decimal,
-    pub time_based_reward_lower_bound: Uint128,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct OrderInfo {
     pub len: u64,
 }

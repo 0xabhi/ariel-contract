@@ -8,8 +8,7 @@ use cw2::set_contract_version;
 // use cw_utils::maybe_addr;
 
 use crate::states::constants::*;
-use crate::states::order::OrderState;
-use crate::states::state::{State, ADMIN, FEESTRUCTURE, ORACLEGUARDRAILS, ORDERSTATE, STATE, LENGTH, Length};
+use crate::states::state::{State, OrderState, ADMIN, FEESTRUCTURE, ORACLEGUARDRAILS, ORDERSTATE, STATE, LENGTH, Length};
 
 use crate::package::execute::{ExecuteMsg, InstantiateMsg};
 use crate::package::helper::addr_validate_to_lower;

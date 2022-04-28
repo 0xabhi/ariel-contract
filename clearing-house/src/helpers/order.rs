@@ -1,6 +1,7 @@
 use crate::error::ContractError;
 use crate::states::market::Market;
-use crate::states::order::{get_limit_price, OrderState, has_oracle_price_offset};
+use crate::states::order::{get_limit_price, has_oracle_price_offset};
+use crate::states::state::OrderState;
 
 use std::cmp::min;
 use std::ops::Div;
