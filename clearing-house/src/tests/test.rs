@@ -1,5 +1,3 @@
-use std::ops::Mul;
-
 use crate::contract::{execute, instantiate, query};
 use crate::states::constants::{DEFAULT_FEE_DENOMINATOR, DEFAULT_FEE_NUMERATOR};
 use crate::states::market::Market;

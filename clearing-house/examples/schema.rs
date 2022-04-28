@@ -6,7 +6,7 @@ use clearing_house::states::{market, state, user};
 use clearing_house::package::execute::{InstantiateMsg, ExecuteMsg};
 use clearing_house::package::queries::QueryMsg;
 use clearing_house::states::history::{CurveRecord, DepositRecord, FundingPaymentRecord, FundingRateRecord, LiquidationRecord, TradeRecord};
-use clearing_house::package::response::{UserResponse, UserPositionResponse, AdminResponse, IsExchangePausedResponse, IsFundingPausedResponse, AdminControlsPricesResponse, VaultsResponse, MarginRatioResponse, PartialLiquidationClosePercentageResponse, PartialLiquidationPenaltyPercentageResponse, FullLiquidationPenaltyPercentageResponse, PartialLiquidatorSharePercentageResponse, FullLiquidatorSharePercentageResponse, MaxDepositLimitResponse, FeeStructureResponse, CurveHistoryLengthResponse, CurveHistoryResponse, DepositHistoryLengthResponse, DepositHistoryResponse, FundingPaymentHistoryLengthResponse, FundingPaymentHistoryResponse, FundingRateHistoryLengthResponse, FundingRateHistoryResponse, LiquidationHistoryLengthResponse, LiquidationHistoryResponse, TradeHistoryLengthResponse, TradeHistoryResponse, MarketInfoResponse};
+use clearing_house::package::response::{UserResponse, UserPositionResponse, AdminResponse, IsExchangePausedResponse, IsFundingPausedResponse, AdminControlsPricesResponse, VaultsResponse, MarginRatioResponse, PartialLiquidationClosePercentageResponse, PartialLiquidationPenaltyPercentageResponse, FullLiquidationPenaltyPercentageResponse, PartialLiquidatorSharePercentageResponse, FullLiquidatorSharePercentageResponse, MaxDepositLimitResponse, FeeStructureResponse, CurveHistoryResponse, DepositHistoryResponse, FundingPaymentHistoryResponse, FundingRateHistoryResponse, LiquidationHistoryResponse, TradeHistoryResponse, MarketInfoResponse, LengthResponse};
 
 fn main() {
     let mut out_dir = current_dir().unwrap();
@@ -63,17 +63,12 @@ fn main() {
     );
     export_schema(&schema_for!(MaxDepositLimitResponse), &out_dir);
     export_schema(&schema_for!(FeeStructureResponse), &out_dir);
-    export_schema(&schema_for!(CurveHistoryLengthResponse), &out_dir);
     export_schema(&schema_for!(CurveHistoryResponse), &out_dir);
-    export_schema(&schema_for!(DepositHistoryLengthResponse), &out_dir);
     export_schema(&schema_for!(DepositHistoryResponse), &out_dir);
-    export_schema(&schema_for!(FundingPaymentHistoryLengthResponse), &out_dir);
     export_schema(&schema_for!(FundingPaymentHistoryResponse), &out_dir);
-    export_schema(&schema_for!(FundingRateHistoryLengthResponse), &out_dir);
     export_schema(&schema_for!(FundingRateHistoryResponse), &out_dir);
-    export_schema(&schema_for!(LiquidationHistoryLengthResponse), &out_dir);
     export_schema(&schema_for!(LiquidationHistoryResponse), &out_dir);
-    export_schema(&schema_for!(TradeHistoryLengthResponse), &out_dir);
+    export_schema(&schema_for!(LengthResponse), &out_dir);
     export_schema(&schema_for!(TradeHistoryResponse), &out_dir);
     export_schema(&schema_for!(MarketInfoResponse), &out_dir);
 }
