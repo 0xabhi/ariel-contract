@@ -6,11 +6,12 @@ use crate::ContractError;
 
 use crate::states::market::{Amm, Market, MARKETS};
 use crate::states::order::OrderState;
+use crate::states::state::LENGTH;
+use crate::states::state::Length;
 use crate::states::state::State;
 use crate::states::state::ADMIN;
 use crate::states::state::FEESTRUCTURE;
 use crate::states::state::ORACLEGUARDRAILS;
-use crate::states::state::ORDERSTATE;
 use crate::states::state::STATE;
 
 use crate::package::helper::addr_validate_to_lower;
@@ -243,19 +244,12 @@ pub fn try_repeg_amm_curve(
     let quote_asset_reserve_after = market.amm.quote_asset_reserve;
     let sqrt_k_after = market.amm.sqrt_k;
 
-    let curve_history_info_length = CURVE_HISTORY_INFO
-        .load(deps.storage)?
-        .len
-        .checked_add(1)
-        .ok_or_else(|| (ContractError::MathError))?;
-    CURVE_HISTORY_INFO.update(
-        deps.storage,
-        |mut i: CurveInfo| -> Result<CurveInfo, ContractError> {
-            i.len = curve_history_info_length;
-            Ok(i)
-        },
-    )?;
-
+    let mut len = LENGTH.load(deps.storage)?;
+    let curve_history_info_length = len.curve_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
+    len.curve_history_length = curve_history_info_length;
+    LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
+        Ok(len)
+    })?;
     CURVEHISTORY.save(
         deps.storage,
         curve_history_info_length.to_string(),
@@ -447,18 +441,12 @@ pub fn try_update_k(
 
     let total_fee = amm.total_fee;
     let total_fee_minus_distributions = amm.total_fee_minus_distributions;
-    let curve_history_info_length = CURVE_HISTORY_INFO
-        .load(deps.storage)?
-        .len
-        .checked_add(1)
-        .ok_or_else(|| (ContractError::MathError))?;
-    CURVE_HISTORY_INFO.update(
-        deps.storage,
-        |mut i: CurveInfo| -> Result<CurveInfo, ContractError> {
-            i.len = curve_history_info_length;
-            Ok(i)
-        },
-    )?;
+    let mut len = LENGTH.load(deps.storage)?;
+    let curve_history_info_length = len.curve_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
+    len.curve_history_length = curve_history_info_length;
+    LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
+        Ok(len)
+    })?;
 
     let OraclePriceData {
         price: oracle_price,

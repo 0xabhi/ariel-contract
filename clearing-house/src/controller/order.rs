@@ -4,8 +4,8 @@ use crate::helpers::fees::{calculate_order_fee_tier, calculate_fee_for_order};
 use crate::helpers::order::{validate_order, validate_order_can_be_canceled, calculate_base_asset_amount_market_can_execute, limit_price_satisfied};
 use crate::states::market::{MARKETS, Market};
 use crate::states::order::{ORDERS, get_limit_price};
-use crate::states::history::{OrderRecord, OrderAction, ORDER_HISTORY_INFO, ORDER_HISTORY, OrderHisInfo, TRADE_HISTORY_INFO, TradeInfo, TRADE_HISTORY, TradeRecord};
-use crate::states::state::{STATE, ORDERSTATE, FEESTRUCTURE, ORACLEGUARDRAILS};
+use crate::states::history::{OrderRecord, OrderAction, ORDER_HISTORY, TRADE_HISTORY, TradeRecord};
+use crate::states::state::{STATE, ORDERSTATE, FEESTRUCTURE, ORACLEGUARDRAILS, LENGTH, Length};
 
 use crate::helpers::order::get_valid_oracle_price;
 use std::cmp::min;
@@ -204,12 +204,11 @@ pub fn place_order(
     )?;
 
     // Add to the order history account    user.order_length = new_order_idx;
-    let order_history_info_length = 
-    ORDER_HISTORY_INFO.load(deps.storage)?
-    .len.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
-    ORDER_HISTORY_INFO.update(deps.storage, |mut i|-> Result<OrderHisInfo, ContractError> {
-        i.len = order_history_info_length;
-        Ok(i)
+    let mut len = LENGTH.load(deps.storage)?;
+    let order_history_info_length = len.order_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
+    len.order_history_length = order_history_info_length;
+    LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
+        Ok(len)
     })?;
     ORDER_HISTORY.save(deps.storage, order_history_info_length.to_string(), &OrderRecord {
         ts: now,
@@ -269,12 +268,11 @@ pub fn cancel_order(
     )?;
 
     // Add to the order history account
-    let order_history_info_length = 
-    ORDER_HISTORY_INFO.load(deps.storage)?
-    .len.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
-    ORDER_HISTORY_INFO.update(deps.storage, |mut i|-> Result<OrderHisInfo, ContractError> {
-        i.len = order_history_info_length;
-        Ok(i)
+    let mut len = LENGTH.load(deps.storage)?;
+    let order_history_info_length = len.order_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
+    len.order_history_length = order_history_info_length;
+    LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
+        Ok(len)
     })?;
     ORDER_HISTORY.save(deps.storage, order_history_info_length.to_string(), &OrderRecord {
         ts: now,
@@ -372,12 +370,11 @@ pub fn expire_orders(
                             .checked_add(Uint128::from(filler_reward_per_order))?;
 
                             // Add to the order history account
-                            let order_history_info_length = 
-                            ORDER_HISTORY_INFO.load(deps.storage)?
-                            .len.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
-                            ORDER_HISTORY_INFO.update(deps.storage, |mut k|-> Result<OrderHisInfo, ContractError> {
-                                k.len = order_history_info_length;
-                                Ok(k)
+                            let mut len = LENGTH.load(deps.storage)?;
+                            let order_history_info_length = len.order_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
+                            len.order_history_length = order_history_info_length;
+                            LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
+                                Ok(len)
                             })?;
                             ORDER_HISTORY.save(deps.storage, order_history_info_length.to_string(), &OrderRecord {
                                 ts: now,
@@ -635,12 +632,11 @@ pub fn fill_order(
     }
 
     // Insert trade history
-    let trade_history_info_length = 
-        TRADE_HISTORY_INFO.load(deps.storage)?
-        .len.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
-    TRADE_HISTORY_INFO.update(deps.storage, |mut k|-> Result<TradeInfo, ContractError> {
-        k.len = trade_history_info_length;
-        Ok(k)
+    let mut len = LENGTH.load(deps.storage)?;
+    let trade_history_info_length = len.trade_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
+    len.trade_history_length = trade_history_info_length;
+    LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
+        Ok(len)
     })?;
     TRADE_HISTORY.save(deps.storage, (&user_addr, trade_history_info_length.to_string()), &TradeRecord {
         ts: now,
@@ -661,12 +657,11 @@ pub fn fill_order(
     
 
     // Insert Order history
-    let order_history_info_length = 
-        ORDER_HISTORY_INFO.load(deps.storage)?
-        .len.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
-    ORDER_HISTORY_INFO.update(deps.storage, |mut k|-> Result<OrderHisInfo, ContractError> {
-        k.len = order_history_info_length;
-        Ok(k)
+    let mut len = LENGTH.load(deps.storage)?;
+    let order_history_info_length = len.order_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
+    len.order_history_length = order_history_info_length;
+    LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
+        Ok(len)
     })?;
     ORDER_HISTORY.save(deps.storage, order_history_info_length.to_string(), &OrderRecord {
         ts: now,

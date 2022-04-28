@@ -8,9 +8,8 @@ use cw2::set_contract_version;
 // use cw_utils::maybe_addr;
 
 use crate::states::constants::*;
-use crate::states::history::{DEPOSIT_HISTORY_INFO, DepositInfo, TRADE_HISTORY_INFO, TradeInfo};
 use crate::states::order::OrderState;
-use crate::states::state::{State, ADMIN, FEESTRUCTURE, ORACLEGUARDRAILS, ORDERSTATE, STATE};
+use crate::states::state::{State, ADMIN, FEESTRUCTURE, ORACLEGUARDRAILS, ORDERSTATE, STATE, LENGTH, Length};
 
 use crate::package::execute::{ExecuteMsg, InstantiateMsg};
 use crate::package::helper::addr_validate_to_lower;
@@ -105,14 +104,16 @@ pub fn instantiate(
     FEESTRUCTURE.save(deps.storage, &fs)?;
     ORACLEGUARDRAILS.save(deps.storage, &oracle_gr)?;
     ORDERSTATE.save(deps.storage, &orderstate)?;
-    DEPOSIT_HISTORY_INFO.save(
-        deps.storage,
-        &DepositInfo{ len: 0}
-    )?;
-    TRADE_HISTORY_INFO.save(
-        deps.storage,
-        &TradeInfo{ len: 0}
-    )?;
+
+    LENGTH.save(deps.storage, &Length{
+        curve_history_length: 0,
+        deposit_history_length: 0,
+        funding_payment_history_length: 0,
+        funding_rate_history_length: 0,
+        liquidation_history_length: 0,
+        order_history_length: 0,
+        trade_history_length: 0,
+    })?;
     Ok(Response::new()
         .add_attribute("method", "instantiate")
         .add_attribute("owner", info.sender.clone()))
@@ -393,11 +394,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> Result<Binary, ContractErr
         QueryMsg::GetOracleGuardRails {} => Ok(to_binary(&get_oracle_guard_rails(deps)?)?),
         QueryMsg::GetOrderState {} => Ok(to_binary(&get_order_state(deps)?)?),
         QueryMsg::GetFeeStructure {} => Ok(to_binary(&get_fee_structure(deps)?)?),
-        QueryMsg::GetCurveHistoryLength {} => Ok(to_binary(&get_curve_history_length(deps)?)?),
         QueryMsg::GetCurveHistory { start_after, limit } => {
             Ok(to_binary(&get_curve_history(deps, start_after, limit)?)?)
         }
-        QueryMsg::GetDepositHistoryLength {} => Ok(to_binary(&get_deposit_history_length(deps)?)?),
         QueryMsg::GetDepositHistory {
             user_address,
             start_after,
@@ -408,9 +407,6 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> Result<Binary, ContractErr
             start_after,
             limit,
         )?)?),
-        QueryMsg::GetFundingPaymentHistoryLength {} => {
-            Ok(to_binary(&get_funding_payment_history_length(deps)?)?)
-        }
         QueryMsg::GetFundingPaymentHistory {
             user_address,
             start_after,
@@ -421,15 +417,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> Result<Binary, ContractErr
             start_after,
             limit,
         )?)?),
-        QueryMsg::GetFundingRateHistoryLength {} => {
-            Ok(to_binary(&get_funding_rate_history_length(deps)?)?)
-        }
         QueryMsg::GetFundingRateHistory { start_after, limit } => Ok(to_binary(
             &get_funding_rate_history(deps, start_after, limit)?,
         )?),
-        QueryMsg::GetLiquidationHistoryLength {} => {
-            Ok(to_binary(&get_liquidation_history_length(deps)?)?)
-        }
         QueryMsg::GetLiquidationHistory {
             user_address,
             start_after,
@@ -440,12 +430,14 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> Result<Binary, ContractErr
             start_after,
             limit,
         )?)?),
-        QueryMsg::GetTradeHistoryLength {} => Ok(to_binary(&get_trade_history_length(deps)?)?),
         QueryMsg::GetTradeHistory { start_after, limit } => {
             Ok(to_binary(&get_trade_history(deps, start_after, limit)?)?)
         }
         QueryMsg::GetMarketInfo { market_index } => {
             Ok(to_binary(&get_market_info(deps, market_index)?)?)
+        }
+        QueryMsg::GetLength { } => {
+            Ok(to_binary(&get_length(deps)?)?)
         }
     }
 }

@@ -109,11 +109,6 @@ pub struct MaxDepositLimitResponse {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct MarketLengthResponse {
-    pub length: u64
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct FeeStructureResponse {
     pub fee: Decimal,
     pub first_tier_minimum_balance: Uint128,
@@ -146,7 +141,17 @@ pub struct OrderStateResponse {
     pub time_based_reward_lower_bound: Uint128, // minimum filler reward for time-based reward
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct CurveHistoryLengthResponse {
+pub struct LengthResponse {
+    pub curve_history_length: u64,
+    pub deposit_history_length: u64,
+    pub funding_payment_history_length: u64,
+    pub funding_rate_history_length: u64,
+    pub liquidation_history_length: u64,
+    pub order_history_length: u64,
+    pub trade_history_length: u64,
+}
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct MarketLengthResponse {
     pub length: u64,
 }
 
@@ -174,11 +179,6 @@ pub struct CurveHistoryResponse {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct DepositHistoryLengthResponse {
-    pub length: u64,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct DepositHistoryResponse {
     pub ts: u64,
     pub record_id: u64,
@@ -187,11 +187,6 @@ pub struct DepositHistoryResponse {
     pub collateral_before: Uint128,
     pub cumulative_deposits_before: Uint128,
     pub amount: u64,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct FundingPaymentHistoryLengthResponse {
-    pub length: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -207,12 +202,7 @@ pub struct FundingPaymentHistoryResponse {
     pub amm_cumulative_funding_long: Number128,
     pub amm_cumulative_funding_short: Number128,
 }
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct FundingRateHistoryLengthResponse {
-    pub length: u64,
-}
-
+    
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct FundingRateHistoryResponse {
     pub ts: u64,
@@ -223,11 +213,6 @@ pub struct FundingRateHistoryResponse {
     pub cumulative_funding_rate_short: Number128,
     pub oracle_price_twap: Number128,
     pub mark_price_twap: Uint128,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct LiquidationHistoryLengthResponse {
-    pub length: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -246,11 +231,6 @@ pub struct LiquidationHistoryResponse {
     pub collateral: Uint128,
     pub unrealized_pnl: Number128,
     pub margin_ratio: Uint128,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct TradeHistoryLengthResponse {
-    pub length: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

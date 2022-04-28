@@ -12,7 +12,7 @@ use crate::ContractError;
 // use crate::helpers::casting::cast_to_i64;
 use crate::states::history::*;
 use crate::states::market::{LiquidationStatus, LiquidationType, MarketStatus, MARKETS};
-use crate::states::state::{ADMIN, STATE, ORACLEGUARDRAILS, ORDERSTATE, FEESTRUCTURE};
+use crate::states::state::{ADMIN, STATE, ORACLEGUARDRAILS, ORDERSTATE, FEESTRUCTURE, LENGTH};
 use crate::states::user::{POSITIONS, USERS};
 
 use crate::package::helper::addr_validate_to_lower;
@@ -230,19 +230,26 @@ pub fn get_fee_structure(deps: Deps) -> Result<FeeStructureResponse, ContractErr
     Ok(res)
 }
 
-pub fn get_curve_history_length(deps: Deps) -> Result<CurveHistoryLengthResponse, ContractError> {
-    let ch_info = CURVE_HISTORY_INFO.load(deps.storage)?;
-    let length = CurveHistoryLengthResponse {
-        length: ch_info.len as u64,
+pub fn get_length(deps: Deps) -> Result<LengthResponse, ContractError> {
+    let len = LENGTH.load(deps.storage)?;
+    let length = LengthResponse {
+        curve_history_length: len.curve_history_length,
+        deposit_history_length: len.deposit_history_length,
+        funding_payment_history_length: len.funding_payment_history_length,
+        funding_rate_history_length: len.funding_rate_history_length,
+        liquidation_history_length: len.liquidation_history_length,
+        order_history_length: len.order_history_length,
+        trade_history_length: len.trade_history_length,
     };
     Ok(length)
 }
+
 pub fn get_curve_history(
     deps: Deps,
     start_after: Option<String>,
     limit: Option<u32>,
 ) -> Result<Vec<CurveHistoryResponse>, ContractError> {
-    let chl = (get_curve_history_length(deps)?).length;
+    let chl = LENGTH.load(deps.storage)?.curve_history_length;
     let mut curves: Vec<CurveHistoryResponse> = vec![];
     if chl > 0 {
         let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
@@ -281,15 +288,6 @@ pub fn get_curve_history(
     Ok(curves)
 }
 
-pub fn get_deposit_history_length(
-    deps: Deps,
-) -> Result<DepositHistoryLengthResponse, ContractError> {
-    let dh_history = DEPOSIT_HISTORY_INFO.load(deps.storage)?;
-    let length = DepositHistoryLengthResponse {
-        length: dh_history.len as u64,
-    };
-    Ok(length)
-}
 pub fn get_deposit_history(
     deps: Deps,
     user_address: String,
@@ -323,15 +321,7 @@ pub fn get_deposit_history(
     }
     Ok(deposit_history)
 }
-pub fn get_funding_payment_history_length(
-    deps: Deps,
-) -> Result<FundingPaymentHistoryLengthResponse, ContractError> {
-    let fp_info = FUNDING_PAYMENT_HISTORY_INFO.load(deps.storage)?;
-    let length = FundingPaymentHistoryLengthResponse {
-        length: fp_info.len as u64,
-    };
-    Ok(length)
-}
+
 pub fn get_funding_payment_history(
     deps: Deps,
     user_address: String,
@@ -367,22 +357,14 @@ pub fn get_funding_payment_history(
     Ok(funding_payment_history)
 }
 
-pub fn get_funding_rate_history_length(
-    deps: Deps,
-) -> Result<FundingRateHistoryLengthResponse, ContractError> {
-    let fr_info = FUNDING_RATE_HISTORY_INFO.load(deps.storage)?;
-    let length = FundingRateHistoryLengthResponse {
-        length: fr_info.len as u64,
-    };
-    Ok(length)
-}
 pub fn get_funding_rate_history(
     deps: Deps,
     start_after: Option<String>,
     limit: Option<u32>,
 ) -> Result<Vec<FundingRateHistoryResponse>, ContractError> {
     let mut fr_history: Vec<FundingRateHistoryResponse> = vec![];
-    if (get_funding_rate_history_length(deps)?).length > 0 {
+    let length = LENGTH.load(deps.storage)?;
+    if length.funding_rate_history_length > 0 {
         let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
         let start = start_after
             .map(|start| start.joined_key())
@@ -411,15 +393,6 @@ pub fn get_funding_rate_history(
     Ok(fr_history)
 }
 
-pub fn get_liquidation_history_length(
-    deps: Deps,
-) -> Result<LiquidationHistoryLengthResponse, ContractError> {
-    let lh_info = LIQUIDATION_HISTORY_INFO.load(deps.storage)?;
-    let length = LiquidationHistoryLengthResponse {
-        length: lh_info.len as u64,
-    };
-    Ok(length)
-}
 pub fn get_liquidation_history(
     deps: Deps,
     user_address: String,
@@ -458,13 +431,6 @@ pub fn get_liquidation_history(
     Ok(liq_history)
 }
 
-pub fn get_trade_history_length(deps: Deps) -> Result<TradeHistoryLengthResponse, ContractError> {
-    let th_info = TRADE_HISTORY_INFO.load(deps.storage)?;
-    let length = TradeHistoryLengthResponse {
-        length: th_info.len as u64,
-    };
-    Ok(length)
-}
 pub fn get_trade_history(
     deps: Deps,
     start_after: Option<String>,

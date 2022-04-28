@@ -25,6 +25,7 @@ pub enum QueryMsg {
     GetOracle {},
     GetMarketLength {},
     GetOracleGuardRails {},
+    GetLength {},
     GetOrderState {},
     GetPartialLiquidationClosePercentage {},
     GetPartialLiquidationPenaltyPercentage {},
@@ -33,36 +34,30 @@ pub enum QueryMsg {
     GetFullLiquidatorSharePercentage {},
     GetMaxDepositLimit {},
     GetFeeStructure {},
-    GetCurveHistoryLength {},
     GetCurveHistory {
         start_after: Option<String>,
         limit: Option<u32>,
     },
-    GetDepositHistoryLength {},
     GetDepositHistory {
         user_address: String,
         start_after: Option<String>,
         limit: Option<u32>,
     },
-    GetFundingPaymentHistoryLength {},
     GetFundingPaymentHistory {
         user_address: String,
         start_after: Option<String>,
         limit: Option<u32>,
     },
-    GetFundingRateHistoryLength {},
     GetFundingRateHistory {
         start_after: Option<String>,
         limit: Option<u32>,
     },
 
-    GetLiquidationHistoryLength {},
     GetLiquidationHistory {
         user_address: String,
         start_after: Option<String>,
         limit: Option<u32>,
     },
-    GetTradeHistoryLength {},
     GetTradeHistory {
         start_after: Option<String>,
         limit: Option<u32>,

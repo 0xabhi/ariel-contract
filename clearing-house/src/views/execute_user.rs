@@ -11,6 +11,8 @@ use crate::states::market::LiquidationStatus;
 use crate::states::market::LiquidationType;
 use crate::states::market::{Market, MARKETS};
 use crate::states::state::FEESTRUCTURE;
+use crate::states::state::LENGTH;
+use crate::states::state::Length;
 use crate::states::state::ORACLEGUARDRAILS;
 use crate::states::state::STATE;
 use crate::states::user::{User, POSITIONS, USERS};
@@ -94,19 +96,13 @@ pub fn try_deposit_collateral(
         msg: to_binary(&VaultInterface::Deposit {})?,
         funds: coins(amount.into(), "uusd"),
     });
-    let deposit_history_info_length = DEPOSIT_HISTORY_INFO
-        .load(deps.storage)?
-        .len
-        .checked_add(1)
-        .ok_or_else(|| (ContractError::MathError))?;
-    DEPOSIT_HISTORY_INFO.update(
-        deps.storage,
-        |mut i| -> Result<DepositInfo, ContractError> {
-            i.len = deposit_history_info_length;
-            Ok(i)
-        },
-    )?;
     
+    let mut len = LENGTH.load(deps.storage)?;
+    let deposit_history_info_length = len.deposit_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
+    len.deposit_history_length = deposit_history_info_length;
+    LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
+        Ok(len)
+    })?;
     DEPOSIT_HISTORY.save(
         deps.storage,
         (user_address.clone(), deposit_history_info_length.to_string()),
@@ -200,18 +196,12 @@ pub fn try_withdraw_collateral(
         }));
     }
 
-    let deposit_history_info_length = DEPOSIT_HISTORY_INFO
-        .load(deps.storage)?
-        .len
-        .checked_add(1)
-        .ok_or_else(|| (ContractError::MathError))?;
-    DEPOSIT_HISTORY_INFO.update(
-        deps.storage,
-        |mut i| -> Result<DepositInfo, ContractError> {
-            i.len = deposit_history_info_length;
-            Ok(i)
-        },
-    )?;
+    let mut len = LENGTH.load(deps.storage)?;
+    let deposit_history_info_length = len.deposit_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
+    len.deposit_history_length = deposit_history_info_length;
+    LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
+        Ok(len)
+    })?;
     DEPOSIT_HISTORY.save(
         deps.storage,
         (user_address.clone(), deposit_history_info_length.to_string()),
@@ -393,16 +383,13 @@ pub fn try_open_position(
     {
         return Err(ContractError::OracleMarkSpreadLimit.into());
     }
-    let trade_history_info_length = TRADE_HISTORY_INFO
-        .load(deps.storage)?
-        .len
-        .checked_add(1)
-        .ok_or_else(|| (ContractError::MathError))?;
-    TRADE_HISTORY_INFO.update(deps.storage, |mut i| -> Result<TradeInfo, ContractError> {
-        i.len = trade_history_info_length;
-        Ok(i)
-    })?;
 
+    let mut len = LENGTH.load(deps.storage)?;
+    let trade_history_info_length = len.trade_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
+    len.trade_history_length = trade_history_info_length;
+    LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
+        Ok(len)
+    })?;
     TRADE_HISTORY.save(
         deps.storage,
         (&user_address, trade_history_info_length.to_string()),
@@ -590,16 +577,12 @@ pub fn try_close_position(
         return Err(ContractError::OracleMarkSpreadLimit.into());
     }
 
-    let trade_history_info_length = TRADE_HISTORY_INFO
-        .load(deps.storage)?
-        .len
-        .checked_add(1)
-        .ok_or_else(|| (ContractError::MathError))?;
-    TRADE_HISTORY_INFO.update(deps.storage, |mut i| -> Result<TradeInfo, ContractError> {
-        i.len = trade_history_info_length;
-        Ok(i)
+    let mut len = LENGTH.load(deps.storage)?;
+    let trade_history_info_length = len.trade_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
+    len.trade_history_length = trade_history_info_length;
+    LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
+        Ok(len)
     })?;
-
     TRADE_HISTORY.save(
         deps.storage,
         (&user_address , trade_history_info_length.to_string()),
@@ -897,19 +880,12 @@ pub fn try_liquidate(
             base_asset_value_closed = base_asset_value_closed.checked_add(quote_asset_amount)?;
             let mark_price_after = market.amm.mark_price()?;
 
-            let trade_history_info_length = TRADE_HISTORY_INFO
-                .load(deps.storage)?
-                .len
-                .checked_add(1)
-                .ok_or_else(|| (ContractError::MathError))?;
-            TRADE_HISTORY_INFO.update(
-                deps.storage,
-                |mut i| -> Result<TradeInfo, ContractError> {
-                    i.len = trade_history_info_length;
-                    Ok(i)
-                },
-            )?;
-
+            let mut len = LENGTH.load(deps.storage)?;
+            let trade_history_info_length = len.trade_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
+            len.trade_history_length = trade_history_info_length;
+            LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
+                Ok(len)
+            })?;
             TRADE_HISTORY.save(
                 deps.storage,
                 (&user_address ,trade_history_info_length.to_string()),
@@ -1082,19 +1058,12 @@ pub fn try_liquidate(
 
             let mark_price_after = market.amm.mark_price()?;
 
-            let trade_history_info_length = TRADE_HISTORY_INFO
-                .load(deps.storage)?
-                .len
-                .checked_add(1)
-                .ok_or_else(|| (ContractError::MathError))?;
-            TRADE_HISTORY_INFO.update(
-                deps.storage,
-                |mut i| -> Result<TradeInfo, ContractError> {
-                    i.len = trade_history_info_length;
-                    Ok(i)
-                },
-            )?;
-
+            let mut len = LENGTH.load(deps.storage)?;
+            let trade_history_info_length = len.trade_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
+            len.trade_history_length = trade_history_info_length;
+            LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
+                Ok(len)
+            })?;        
             TRADE_HISTORY.save(
                 deps.storage,
                 (&user_address, trade_history_info_length.to_string()),
@@ -1194,18 +1163,12 @@ pub fn try_liquidate(
         messages.push(message);
     }
 
-    let liquidation_history_info_length = LIQUIDATION_HISTORY_INFO
-        .load(deps.storage)?
-        .len
-        .checked_add(1)
-        .ok_or_else(|| (ContractError::MathError))?;
-    LIQUIDATION_HISTORY_INFO.update(
-        deps.storage,
-        |mut i| -> Result<LiquidationInfo, ContractError> {
-            i.len = liquidation_history_info_length;
-            Ok(i)
-        },
-    )?;
+    let mut len = LENGTH.load(deps.storage)?;
+    let liquidation_history_info_length = len.liquidation_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
+    len.liquidation_history_length = liquidation_history_info_length;
+    LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
+        Ok(len)
+    })?;
     LIQUIDATION_HISTORY.save(
         deps.storage,
         (user_address.clone(), liquidation_history_info_length.to_string()),

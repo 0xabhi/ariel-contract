@@ -1,6 +1,8 @@
 use std::cmp::max;
 
 use crate::package::number::Number128;
+use crate::states::state::LENGTH;
+use crate::states::state::Length;
 use cosmwasm_std::Addr;
 use cosmwasm_std::DepsMut;
 use cosmwasm_std::Uint128;
@@ -9,8 +11,8 @@ use crate::error::ContractError;
 
 use crate::helpers::amm::normalise_oracle_price;
 use crate::states::history::{
-    FUNDING_PAYMENT_HISTORY, FUNDING_PAYMENT_HISTORY_INFO, FundingPaymentInfo, FundingPaymentRecord,
-    FUNDING_RATE_HISTORY, FUNDING_RATE_HISTORY_INFO, FundingRateInfo, FundingRateRecord,
+    FUNDING_PAYMENT_HISTORY, FundingPaymentRecord,
+    FUNDING_RATE_HISTORY, FundingRateRecord,
 };
 use crate::states::market::{Market, MARKETS};
 use crate::states::state::ORACLEGUARDRAILS;
@@ -60,18 +62,13 @@ pub fn settle_funding_payment(
                 if amm_cumulative_funding_rate != m.last_cumulative_funding_rate.i128() {
                     let market_funding_rate_payment =
                         calculate_funding_payment(amm_cumulative_funding_rate, &m)?;
-                    let funding_payment_history_info_length = FUNDING_PAYMENT_HISTORY_INFO
-                        .load(deps.storage)?
-                        .len
-                        .checked_add(1)
-                        .ok_or_else(|| (ContractError::MathError))?;
-                    FUNDING_PAYMENT_HISTORY_INFO.update(
-                        deps.storage,
-                        |mut i| -> Result<FundingPaymentInfo, ContractError> {
-                            i.len = funding_payment_history_info_length;
-                            Ok(i)
-                        },
-                    )?;
+
+                    let mut len = LENGTH.load(deps.storage)?;
+                    let funding_payment_history_info_length = len.funding_payment_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
+                    len.funding_payment_history_length = funding_payment_history_info_length;
+                    LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
+                        Ok(len)
+                    })?;
                     FUNDING_PAYMENT_HISTORY.save(
                         deps.storage,
                         (user_addr, funding_payment_history_info_length.to_string()),
@@ -228,18 +225,12 @@ pub fn update_funding_rate(
             |_m| -> Result<Market, ContractError> { Ok(market.clone()) },
         )?;
 
-        let funding_rate_history_info_length = FUNDING_RATE_HISTORY_INFO
-            .load(deps.storage)?
-            .len
-            .checked_add(1)
-            .ok_or_else(|| (ContractError::MathError))?;
-        FUNDING_RATE_HISTORY_INFO.update(
-            deps.storage,
-            |mut i: FundingRateInfo| -> Result<FundingRateInfo, ContractError> {
-                i.len = funding_rate_history_info_length;
-                Ok(i)
-            },
-        )?;
+        let mut len = LENGTH.load(deps.storage)?;
+        let funding_rate_history_info_length = len.funding_rate_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
+        len.funding_rate_history_length = funding_rate_history_info_length;
+        LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
+            Ok(len)
+        })?;
         FUNDING_RATE_HISTORY.save(
             deps.storage,
             funding_rate_history_info_length.to_string(),
