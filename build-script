@@ -1,0 +1,8 @@
+cd /home/utpal/Code/terratest/ariel-contract/collateral-vault
+cargo run-script optimize
+cd /home/utpal/Code/terratest/ariel-contract/insurance-vault
+cargo run-script optimize
+cd /home/utpal/Code/terratest/ariel-contract/oracle
+cargo run-script optimize
+cd /home/utpal/Code/terratest/ariel-contract/clearing-house
+cargo run-script optimize
