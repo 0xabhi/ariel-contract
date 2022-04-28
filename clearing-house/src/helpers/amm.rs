@@ -1,6 +1,6 @@
 use std::cmp::{max, min};
 
-use num::integer::Roots;
+use num_integer::Roots;
 
 use crate::error::ContractError;
 

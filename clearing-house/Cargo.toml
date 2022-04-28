@@ -47,7 +47,7 @@ cw2 = "0.8.1"
 schemars = "0.8.3"
 serde = { version = "1.0.127", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.26" }
-num = "0.4.0"
+num-integer = "0.1"
 cw-controllers = "0.9.1"
 
 [dev-dependencies]

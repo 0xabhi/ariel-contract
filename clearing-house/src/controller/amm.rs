@@ -1,6 +1,6 @@
 use std::ops::Mul;
 use crate::package::number::Number128;
-use num::integer::Roots;
+use num_integer::Roots;
 use cosmwasm_std::{DepsMut, Uint128};
 
 use crate::error::{ContractError};
