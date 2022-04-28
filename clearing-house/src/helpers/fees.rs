@@ -5,7 +5,7 @@ use cosmwasm_std::{Addr, Uint128, Fraction, Decimal};
 use crate::states::state::OrderState;
 use crate::{error::ContractError};
 
-use num::integer::Roots;
+use num_integer::Roots;
 
 use crate::package::types::{FeeStructure, OrderDiscountTier};
 
