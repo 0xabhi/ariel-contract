@@ -11,11 +11,11 @@ pub enum QueryMsg {
         user_address: String,
         index: u64,
     },
-    GetUserPositions {
-        user_address: String,
-        start_after: Option<String>,
-        limit: Option<u32>,
-    },
+    // GetUserPositions {
+    //     user_address: String,
+    //     start_after: Option<String>,
+    //     limit: Option<u32>,
+    // },
     GetAdmin {},
     IsExchangePaused {},
     IsFundingPaused {},

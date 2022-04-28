@@ -1,3 +1,4 @@
+sudo rm -rf */artifacts
 cd /home/utpal/Code/terratest/ariel-contract/collateral-vault
 cargo run-script optimize
 cd /home/utpal/Code/terratest/ariel-contract/insurance-vault

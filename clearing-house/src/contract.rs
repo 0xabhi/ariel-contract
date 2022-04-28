@@ -356,16 +356,16 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> Result<Binary, ContractErr
             user_address,
             index,
         } => Ok(to_binary(&get_user_position(deps, user_address, index)?)?),
-        QueryMsg::GetUserPositions {
-            user_address,
-            start_after,
-            limit,
-        } => Ok(to_binary(&get_active_positions(
-            deps,
-            user_address,
-            start_after,
-            limit,
-        )?)?),
+        // QueryMsg::GetUserPositions {
+        //     user_address,
+        //     start_after,
+        //     limit,
+        // } => Ok(to_binary(&get_active_positions(
+        //     deps,
+        //     user_address,
+        //     start_after,
+        //     limit,
+        // )?)?),
         QueryMsg::GetAdmin {} => Ok(to_binary(&get_admin(deps)?)?),
         QueryMsg::IsExchangePaused {} => Ok(to_binary(&is_exchange_paused(deps)?)?),
         QueryMsg::IsFundingPaused {} => Ok(to_binary(&is_funding_paused(deps)?)?),

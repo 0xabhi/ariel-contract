@@ -503,75 +503,75 @@ pub fn get_market_info(deps: Deps, market_index: u64) -> Result<MarketInfoRespon
 }
 
 // get list in response
-pub fn get_active_positions(
-    deps: Deps,
-    user_address: String,
-    start_after: Option<String>,
-    limit: Option<u32>,
-) -> Result<Vec<PositionResponse>, ContractError> {
-    let user_addr = addr_validate_to_lower(deps.api, user_address.as_str())?;
+// pub fn get_active_positions(
+//     deps: Deps,
+//     user_address: String,
+//     start_after: Option<String>,
+//     limit: Option<u32>,
+// ) -> Result<Vec<PositionResponse>, ContractError> {
+//     let user_addr = addr_validate_to_lower(deps.api, user_address.as_str())?;
     
-    let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
-    let start = start_after
-        .map(|start| start.joined_key())
-        .map(Bound::Exclusive);
+//     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
+//     let start = start_after
+//         .map(|start| start.joined_key())
+//         .map(Bound::Exclusive);
 
-    let active_positions : Vec<UserPositionResponse> = POSITIONS
-        .prefix(&user_addr)
-        .range(deps.storage, start, None, Order::Ascending)
-        .filter_map(|positions| {
-            positions.ok().map(|position| UserPositionResponse {
-                base_asset_amount: position.1.base_asset_amount,
-                quote_asset_amount: position.1.quote_asset_amount,
-                last_cumulative_funding_rate: position.1.last_cumulative_funding_rate,
-                last_cumulative_repeg_rebate: position.1.last_cumulative_repeg_rebate,
-                last_funding_rate_ts: position.1.last_funding_rate_ts
-            })
-        })
-        .take(limit)
-        .collect();
-    // }
+//     let active_positions : Vec<UserPositionResponse> = POSITIONS
+//         .prefix(&user_addr)
+//         .range(deps.storage, start, None, Order::Ascending)
+//         .filter_map(|positions| {
+//             positions.ok().map(|position| UserPositionResponse {
+//                 base_asset_amount: position.1.base_asset_amount,
+//                 quote_asset_amount: position.1.quote_asset_amount,
+//                 last_cumulative_funding_rate: position.1.last_cumulative_funding_rate,
+//                 last_cumulative_repeg_rebate: position.1.last_cumulative_repeg_rebate,
+//                 last_funding_rate_ts: position.1.last_funding_rate_ts
+//             })
+//         })
+//         .take(limit)
+//         .collect();
+//     // }
         
-    let mut positions: Vec<PositionResponse> = vec![];
-    for position in active_positions.clone() {
-        if position.base_asset_amount.i128().unsigned_abs() == 0{
-            continue;
-        }
-        let mut direction = direction_to_close_position(position.base_asset_amount.i128());
-        if direction == PositionDirection::Long {
-            direction = PositionDirection::Short;
-        }
-        else{
-            direction = PositionDirection::Long;
-        }
-        let entry_price: Uint128 = (position
-            .quote_asset_amount
-            .checked_mul(MARK_PRICE_PRECISION * AMM_TO_QUOTE_PRECISION_RATIO))?
-        .checked_div(Uint128::from(
-            position.base_asset_amount.i128().unsigned_abs(),
-        ))?;
+//     let mut positions: Vec<PositionResponse> = vec![];
+//     for position in active_positions.clone() {
+//         if position.base_asset_amount.i128().unsigned_abs() == 0{
+//             continue;
+//         }
+//         let mut direction = direction_to_close_position(position.base_asset_amount.i128());
+//         if direction == PositionDirection::Long {
+//             direction = PositionDirection::Short;
+//         }
+//         else{
+//             direction = PositionDirection::Long;
+//         }
+//         let entry_price: Uint128 = (position
+//             .quote_asset_amount
+//             .checked_mul(MARK_PRICE_PRECISION * AMM_TO_QUOTE_PRECISION_RATIO))?
+//         .checked_div(Uint128::from(
+//             position.base_asset_amount.i128().unsigned_abs(),
+//         ))?;
 
-        let entry_notional = position.quote_asset_amount;
-        let oracle_guard_rails = ORACLEGUARDRAILS.load(deps.storage)?;
-        let liq_status =
-            calculate_liquidation_status(&deps, &user_addr, &oracle_guard_rails).unwrap();
-        let pr = PositionResponse {
-            direction,
-            initial_size: Uint128::from(position.base_asset_amount.i128().unsigned_abs()),
-            entry_notional: Number128::new(entry_notional.u128() as i128),
-            entry_price,
-            pnl: Number128::new(liq_status.unrealized_pnl),
-            base_asset_amount: position.base_asset_amount,
-            quote_asset_amount: position.quote_asset_amount,
-            last_cumulative_funding_rate: position.last_cumulative_funding_rate,
-            last_cumulative_repeg_rebate: position.last_cumulative_repeg_rebate,
-            last_funding_rate_ts: position.last_funding_rate_ts
-        };
-        positions.push(pr);
-    }
+//         let entry_notional = position.quote_asset_amount;
+//         let oracle_guard_rails = ORACLEGUARDRAILS.load(deps.storage)?;
+//         let liq_status =
+//             calculate_liquidation_status(&deps, &user_addr, &oracle_guard_rails).unwrap();
+//         let pr = PositionResponse {
+//             direction,
+//             initial_size: Uint128::from(position.base_asset_amount.i128().unsigned_abs()),
+//             entry_notional: Number128::new(entry_notional.u128() as i128),
+//             entry_price,
+//             pnl: Number128::new(liq_status.unrealized_pnl),
+//             base_asset_amount: position.base_asset_amount,
+//             quote_asset_amount: position.quote_asset_amount,
+//             last_cumulative_funding_rate: position.last_cumulative_funding_rate,
+//             last_cumulative_repeg_rebate: position.last_cumulative_repeg_rebate,
+//             last_funding_rate_ts: position.last_funding_rate_ts
+//         };
+//         positions.push(pr);
+//     }
 
-    Ok(positions)
-}
+//     Ok(positions)
+// }
 
 pub fn calculate_liquidation_status(
     deps: &Deps,
