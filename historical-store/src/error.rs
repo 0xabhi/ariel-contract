@@ -17,6 +17,9 @@ pub enum ContractError {
 
     #[error("Not An Admin")]
     ConversionOverflowError(#[from] ConversionOverflowError),
+
+    #[error("Math Error")]
+    MathError,
 }
 
 impl From<OverflowError> for ContractError {

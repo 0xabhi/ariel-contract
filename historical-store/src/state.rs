@@ -52,7 +52,7 @@ pub struct DepositRecord {
     pub amount: u64,
 }
 
-pub const DEPOSIT_HISTORY: Map<(Addr, String),  DepositRecord> = Map::new("deposit_history");
+pub const DEPOSIT_HISTORY: Map<(&Addr, String),  DepositRecord> = Map::new("deposit_history");
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct FundingPaymentRecord {
@@ -99,7 +99,7 @@ pub struct LiquidationRecord {
     pub margin_ratio: Uint128,
 }
 
-pub const LIQUIDATION_HISTORY: Map<(Addr, String),  LiquidationRecord> = Map::new("liquidation_history");
+pub const LIQUIDATION_HISTORY: Map<(&Addr, String),  LiquidationRecord> = Map::new("liquidation_history");
 
 // #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 // pub enum OrderAction {
