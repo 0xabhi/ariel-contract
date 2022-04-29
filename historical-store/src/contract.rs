@@ -7,7 +7,7 @@ use cw_storage_plus::{Bound, PrimaryKey};
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, TradeHistoryResponse, LiquidationHistoryResponse, FundingRateHistoryResponse, LengthResponse, ConfigResponse, CurveHistoryResponse, DepositHistoryResponse, FundingPaymentHistoryResponse};
 use crate::package::validate::addr_validate_to_lower;
-use crate::state::{State, STATE, TradeRecord, LiquidationRecord, FundingPaymentRecord, CurveRecord, FundingRateRecord, DepositRecord, FUNDING_RATE_HISTORY, LIQUIDATION_HISTORY, TRADE_HISTORY, LENGTH, DEPOSIT_HISTORY, FUNDING_PAYMENT_HISTORY};
+use crate::state::{State, STATE, TradeRecord, LiquidationRecord, FundingPaymentRecord, CurveRecord, FundingRateRecord, DepositRecord, FUNDING_RATE_HISTORY, LIQUIDATION_HISTORY, TRADE_HISTORY, LENGTH, DEPOSIT_HISTORY, FUNDING_PAYMENT_HISTORY, CURVEHISTORY};
 
 // iterator limits
 pub const MAX_LIMIT: u32 = 20;
@@ -28,7 +28,7 @@ pub fn instantiate(
     let clearing_house = deps.api.addr_validate(&msg.clearing_house)?;
     let state = State {
         owner:info.sender.clone(), 
-        clearing_house: clearing_house
+        clearing_house: clearing_house.clone()
     };
     STATE.save(deps.storage, &state)?;
 
@@ -135,7 +135,7 @@ fn try_new_admin(deps: DepsMut, info: MessageInfo, new_admin: String) -> Result<
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> Result<Binary, ContractError> {
     match msg {
         QueryMsg::GetConfig {} => {
             Ok(to_binary(&get_config(deps)?)?)
