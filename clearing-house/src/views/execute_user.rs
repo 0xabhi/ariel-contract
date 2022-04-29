@@ -2,8 +2,9 @@ use std::ops::Div;
 
 use crate::controller;
 use crate::helpers;
-use crate::states::constants::*;
 use crate::helpers::position::calculate_withdrawal_amounts;
+use crate::package::history::HistoryExecuteMsg;
+use crate::states::constants::*;
 use crate::states::history::*;
 use crate::ContractError;
 
@@ -11,8 +12,6 @@ use crate::states::market::LiquidationStatus;
 use crate::states::market::LiquidationType;
 use crate::states::market::{Market, MARKETS};
 use crate::states::state::FEESTRUCTURE;
-use crate::states::state::LENGTH;
-use crate::states::state::Length;
 use crate::states::state::ORACLEGUARDRAILS;
 use crate::states::state::STATE;
 use crate::states::user::{User, POSITIONS, USERS};
@@ -22,12 +21,9 @@ use crate::package::helper::assert_sent_uusd_balance;
 use crate::package::helper::query_balance;
 use crate::package::helper::VaultInterface;
 use crate::package::number::Number128;
-use crate::package::types::{
-    DepositDirection, PositionDirection,
-};
+use crate::package::types::{DepositDirection, PositionDirection};
 use cosmwasm_std::{
-    coins, to_binary, CosmosMsg, DepsMut, Env, Fraction, MessageInfo, Response, Uint128,
-    WasmMsg,
+    coins, to_binary, CosmosMsg, DepsMut, Env, Fraction, MessageInfo, Response, Uint128, WasmMsg,
 };
 
 pub fn try_deposit_collateral(
@@ -89,35 +85,39 @@ pub fn try_deposit_collateral(
     )?;
 
     let f = controller::funding::settle_funding_payment(&mut deps, &user_address, now)?;
-    //get and send tokens to collateral vault
+    let mut messages: Vec<CosmosMsg> = vec![];
+    for fp in f {
+        let message: CosmosMsg = CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: state.history_contract.clone().to_string(),
+            msg: to_binary(&HistoryExecuteMsg::RecordFundingPayment { f: fp })?,
+            funds: vec![],
+        });
+        messages.push(message);
+    }
     let message: CosmosMsg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: state.insurance_vault.to_string(),
         msg: to_binary(&VaultInterface::Deposit {})?,
         funds: coins(amount.into(), "uusd"),
     });
-    
-    let mut len = LENGTH.load(deps.storage)?;
-    let deposit_history_info_length = len.deposit_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
-    len.deposit_history_length = deposit_history_info_length;
-    LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
-        Ok(len)
-    })?;
-    DEPOSIT_HISTORY.save(
-        deps.storage,
-        (user_address.clone(), deposit_history_info_length.to_string()),
-        &DepositRecord {
-            ts: now,
-            record_id: deposit_history_info_length,
-            user: user_address.clone(),
-            direction: DepositDirection::DEPOSIT,
-            collateral_before,
-            cumulative_deposits_before,
-            amount: amount,
-        },
-    )?;
+    messages.push(message);
 
+    let message_h = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: state.history_contract.clone().to_string(),
+        msg: to_binary(&HistoryExecuteMsg::RecordDeposit {
+            d: DepositRecord {
+                ts: now,
+                user: user_address.clone(),
+                direction: DepositDirection::DEPOSIT,
+                collateral_before,
+                cumulative_deposits_before,
+                amount: amount,
+            },
+        })?,
+        funds: vec![],
+    });
+    messages.push(message_h);
     Ok(Response::new()
-        .add_message(message)
+        .add_messages(messages)
         .add_attribute("method", "try_deposit_collateral"))
 }
 
@@ -138,15 +138,23 @@ pub fn try_withdraw_collateral(
     }
     let collateral_before = user.collateral;
     let cumulative_deposits_before = user.cumulative_deposits;
-
+    let state = STATE.load(deps.storage)?;
     let f = controller::funding::settle_funding_payment(&mut deps, &user_address, now)?;
+    let mut messages: Vec<CosmosMsg> = vec![];
+    for fp in f {
+        let message: CosmosMsg = CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: state.history_contract.clone().to_string(),
+            msg: to_binary(&HistoryExecuteMsg::RecordFundingPayment { f: fp })?,
+            funds: vec![],
+        });
+        messages.push(message);
+    }
     user = USERS.may_load(deps.storage, &user_address)?.unwrap();
 
     if (amount as u128) > user.collateral.u128() {
         return Err(ContractError::InsufficientCollateral.into());
     }
 
-    let state = STATE.load(deps.storage)?;
     let collateral_balance = query_balance(&deps.querier, state.collateral_vault.clone())?;
     let insurance_balance = query_balance(&deps.querier, state.insurance_vault.clone())?;
     let (collateral_account_withdrawal, insurance_account_withdrawal) =
@@ -173,8 +181,6 @@ pub fn try_withdraw_collateral(
         return Err(ContractError::InsufficientCollateral.into());
     }
 
-    let mut messages: Vec<CosmosMsg> = vec![];
-
     messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: state.collateral_vault.clone().to_string(),
         msg: to_binary(&VaultInterface::Withdraw {
@@ -195,25 +201,20 @@ pub fn try_withdraw_collateral(
         }));
     }
 
-    let mut len = LENGTH.load(deps.storage)?;
-    let deposit_history_info_length = len.deposit_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
-    len.deposit_history_length = deposit_history_info_length;
-    LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
-        Ok(len)
-    })?;
-    DEPOSIT_HISTORY.save(
-        deps.storage,
-        (user_address.clone(), deposit_history_info_length.to_string()),
-        &DepositRecord {
-            ts: now,
-            record_id: deposit_history_info_length,
-            user: user_address.clone(),
-            direction: DepositDirection::WITHDRAW,
-            collateral_before,
-            cumulative_deposits_before,
-            amount: amount_withdraw.u128() as u64,
-        },
-    )?;
+    messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: state.history_contract.clone().to_string(),
+        msg: to_binary(&HistoryExecuteMsg::RecordDeposit {
+            d: DepositRecord {
+                ts: now,
+                user: user_address.clone(),
+                direction: DepositDirection::WITHDRAW,
+                collateral_before,
+                cumulative_deposits_before,
+                amount: amount_withdraw.u128() as u64,
+            },
+        })?,
+        funds: vec![],
+    }));
     USERS.update(
         deps.storage,
         &user_address.clone(),
@@ -234,7 +235,7 @@ pub fn try_open_position(
     limit_price: Option<Uint128>,
 ) -> Result<Response, ContractError> {
     let user_address = info.sender.clone();
-    
+
     let now = env.block.time.seconds();
     let state = STATE.load(deps.storage)?;
     let oracle_guard_rails = ORACLEGUARDRAILS.load(deps.storage)?;
@@ -244,7 +245,15 @@ pub fn try_open_position(
         return Err(ContractError::TradeSizeTooSmall.into());
     }
     let f = controller::funding::settle_funding_payment(&mut deps, &user_address, now)?;
-
+    let mut messages: Vec<CosmosMsg> = vec![];
+    for fp in f {
+        let message: CosmosMsg = CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: state.history_contract.clone().to_string(),
+            msg: to_binary(&HistoryExecuteMsg::RecordFundingPayment { f: fp })?,
+            funds: vec![],
+        });
+        messages.push(message);
+    }
     let position_index = market_index.clone();
     let mark_price_before: Uint128;
     let oracle_mark_spread_pct_before: i128;
@@ -383,33 +392,29 @@ pub fn try_open_position(
         return Err(ContractError::OracleMarkSpreadLimit.into());
     }
 
-    let mut len = LENGTH.load(deps.storage)?;
-    let trade_history_info_length = len.trade_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
-    len.trade_history_length = trade_history_info_length;
-    LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
-        Ok(len)
-    })?;
-    TRADE_HISTORY.save(
-        deps.storage,
-        (&user_address, trade_history_info_length.to_string()),
-        &TradeRecord {
-            ts: now,
-            user: user_address.clone(),
-            direction,
-            base_asset_amount,
-            quote_asset_amount,
-            mark_price_before,
-            mark_price_after,
-            fee: user_fee,
-            referrer_reward,
-            referee_discount,
-            token_discount,
-            liquidation: false,
-            market_index,
-            oracle_price: Number128::new(oracle_price_after),
-        },
-    )?;
-
+    let message: CosmosMsg = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: state.insurance_vault.to_string(),
+        msg: to_binary(&HistoryExecuteMsg::RecordTrade {
+            t: TradeRecord {
+                ts: now,
+                user: user_address.clone(),
+                direction,
+                base_asset_amount,
+                quote_asset_amount,
+                mark_price_before,
+                mark_price_after,
+                fee: user_fee,
+                referrer_reward,
+                referee_discount,
+                token_discount,
+                liquidation: false,
+                market_index,
+                oracle_price: Number128::new(oracle_price_after),
+            },
+        })?,
+        funds: vec![],
+    });
+    messages.push(message);
     if limit_price.is_some()
         && !helpers::order::limit_price_satisfied(
             limit_price.unwrap(),
@@ -429,6 +434,12 @@ pub fn try_open_position(
             state.funding_paused,
             Some(mark_price_before),
         )?;
+        let message: CosmosMsg = CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: state.history_contract.clone().to_string(),
+            msg: to_binary(&HistoryExecuteMsg::RecordFundingRate { f: f.unwrap() })?,
+            funds: vec![],
+        });
+        messages.push(message);
     }
 
     USERS.update(
@@ -437,7 +448,9 @@ pub fn try_open_position(
         |_m| -> Result<User, ContractError> { Ok(user) },
     )?;
 
-    Ok(Response::new().add_attribute("method", "try_open_position"))
+    Ok(Response::new()
+        .add_messages(messages)
+        .add_attribute("method", "try_open_position"))
 }
 
 pub fn try_close_position(
@@ -452,9 +465,20 @@ pub fn try_close_position(
     let oracle_guard_rails = ORACLEGUARDRAILS.load(deps.storage)?;
     let fee_structure = FEESTRUCTURE.load(deps.storage)?;
     let f = controller::funding::settle_funding_payment(&mut deps, &user_address, now)?;
-
+    let mut messages: Vec<CosmosMsg> = vec![];
+    for fp in f {
+        let message: CosmosMsg = CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: state.history_contract.clone().to_string(),
+            msg: to_binary(&HistoryExecuteMsg::RecordFundingPayment { f: fp })?,
+            funds: vec![],
+        });
+        messages.push(message);
+    }
     let position_index = market_index.clone();
-    let market_position = POSITIONS.load(deps.storage, (&user_address.clone(), market_index.to_string()))?;
+    let market_position = POSITIONS.load(
+        deps.storage,
+        (&user_address.clone(), market_index.to_string()),
+    )?;
     let mut market = MARKETS.load(deps.storage, market_index.to_string())?;
     let mark_price_before = market.amm.mark_price()?;
     let oracle_price_data = market.amm.get_oracle_price()?;
@@ -519,9 +543,7 @@ pub fn try_close_position(
         )?;
     }
 
-
     let mark_price_after = market.amm.mark_price()?;
-
 
     let oracle_mark_spread_pct_after = helpers::amm::calculate_oracle_mark_spread_pct(
         &market.amm,
@@ -533,7 +555,7 @@ pub fn try_close_position(
 
     let is_oracle_valid =
         helpers::amm::is_oracle_valid(&market.amm, &oracle_price_data, &oracle_guard_rails)?;
-    
+
     MARKETS.update(
         deps.storage,
         market_index.to_string(),
@@ -545,7 +567,6 @@ pub fn try_close_position(
         &user_address.clone(),
         |_m| -> Result<User, ContractError> { Ok(user) },
     )?;
-    
 
     if is_oracle_valid {
         let normalised_oracle_price = helpers::amm::normalise_oracle_price(
@@ -575,8 +596,7 @@ pub fn try_close_position(
     {
         return Err(ContractError::OracleMarkSpreadLimit.into());
     }
-
-   
+    let mut messages: Vec<CosmosMsg> = vec![];
     let t = TradeRecord {
         ts: now,
         user: user_address.clone(),
@@ -593,7 +613,12 @@ pub fn try_close_position(
         market_index,
         oracle_price: oracle_price_after,
     };
-   
+    let message: CosmosMsg = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: state.history_contract.clone().to_string(),
+        msg: to_binary(&HistoryExecuteMsg::RecordTrade { t })?,
+        funds: vec![],
+    });
+    messages.push(message);
     let f = controller::funding::update_funding_rate(
         &mut deps,
         market_index,
@@ -601,8 +626,16 @@ pub fn try_close_position(
         state.funding_paused,
         Some(mark_price_before),
     )?;
+    let message: CosmosMsg = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: state.history_contract.clone().to_string(),
+        msg: to_binary(&HistoryExecuteMsg::RecordFundingRate { f: f.unwrap() })?,
+        funds: vec![],
+    });
+    messages.push(message);
 
-    Ok(Response::new().add_attribute("method", "try_close_position"))
+    Ok(Response::new()
+        .add_messages(messages)
+        .add_attribute("method", "try_close_position"))
 }
 
 //new limit order interfaces
@@ -694,7 +727,7 @@ pub fn try_liquidate(
     let state = STATE.load(deps.storage)?;
     let user_address = addr_validate_to_lower(deps.api, &user)?;
     let now = env.block.time.seconds();
-
+    let mut messages: Vec<CosmosMsg> = vec![];
     let f = controller::funding::settle_funding_payment(&mut deps, &user_address, now)?;
 
     let mut user = USERS.load(deps.storage, &user_address)?;
@@ -708,10 +741,7 @@ pub fn try_liquidate(
         market_statuses,
         mut margin_requirement,
         margin_ratio,
-    } = controller::margin::calculate_liquidation_status(
-        &mut deps,
-        &user_address
-    )?;
+    } = controller::margin::calculate_liquidation_status(&mut deps, &user_address)?;
 
     let res: Response = Response::new().add_attribute("method", "try_liquidate");
     let collateral = user.collateral;
@@ -736,8 +766,12 @@ pub fn try_liquidate(
 
     if is_full_liquidation {
         let maximum_liquidation_fee = total_collateral
-            .checked_mul(Uint128::from(state.full_liquidation_penalty_percentage.numerator()))?
-            .checked_div(Uint128::from(state.full_liquidation_penalty_percentage.denominator()))?;
+            .checked_mul(Uint128::from(
+                state.full_liquidation_penalty_percentage.numerator(),
+            ))?
+            .checked_div(Uint128::from(
+                state.full_liquidation_penalty_percentage.denominator(),
+            ))?;
 
         for market_status in market_statuses.iter() {
             if market_status.base_asset_value.is_zero() {
@@ -765,7 +799,8 @@ pub fn try_liquidate(
                 }
             }
 
-            let market_position = POSITIONS.load(deps.storage, (&user_address, market_index.to_string()))?;
+            let market_position =
+                POSITIONS.load(deps.storage, (&user_address, market_index.to_string()))?;
             // todo initialize position
 
             let mark_price_before_i128 = mark_price_before.u128() as i128;
@@ -809,7 +844,7 @@ pub fn try_liquidate(
             };
 
             let oracle_guard_rails = ORACLEGUARDRAILS.load(deps.storage)?;
-    
+
             let oracle_mark_too_divergent_after_close = helpers::amm::is_oracle_mark_too_divergent(
                 oracle_mark_divergence_after_close,
                 &oracle_guard_rails,
@@ -869,34 +904,29 @@ pub fn try_liquidate(
             let base_asset_amount = Uint128::from(base_asset_amount.unsigned_abs());
             base_asset_value_closed = base_asset_value_closed.checked_add(quote_asset_amount)?;
             let mark_price_after = market.amm.mark_price()?;
-
-            let mut len = LENGTH.load(deps.storage)?;
-            let trade_history_info_length = len.trade_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
-            len.trade_history_length = trade_history_info_length;
-            LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
-                Ok(len)
-            })?;
-            TRADE_HISTORY.save(
-                deps.storage,
-                (&user_address ,trade_history_info_length.to_string()),
-                &TradeRecord {
-                    ts: now,
-                    user: user_address.clone(),
-                    direction: direction_to_close,
-                    base_asset_amount,
-                    quote_asset_amount,
-                    mark_price_before,
-                    mark_price_after,
-                    fee: Uint128::zero(),
-                    referrer_reward: Uint128::zero(),
-                    referee_discount: Uint128::zero(),
-                    token_discount: Uint128::zero(),
-                    liquidation: true,
-                    market_index,
-                    oracle_price: market_status.oracle_status.price_data.price,
-                },
-            )?;
-
+            let message_h = CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: state.history_contract.clone().to_string(),
+                msg: to_binary(&HistoryExecuteMsg::RecordTrade {
+                    t: TradeRecord {
+                        ts: now,
+                        user: user_address.clone(),
+                        direction: direction_to_close,
+                        base_asset_amount,
+                        quote_asset_amount,
+                        mark_price_before,
+                        mark_price_after,
+                        fee: Uint128::zero(),
+                        referrer_reward: Uint128::zero(),
+                        referee_discount: Uint128::zero(),
+                        token_discount: Uint128::zero(),
+                        liquidation: true,
+                        market_index,
+                        oracle_price: market_status.oracle_status.price_data.price,
+                    },
+                })?,
+                funds: vec![],
+            });
+            messages.push(message_h);
             margin_requirement = margin_requirement.checked_sub(
                 market_status
                     .maintenance_margin_requirement
@@ -919,11 +949,19 @@ pub fn try_liquidate(
         }
     } else {
         let maximum_liquidation_fee = total_collateral
-            .checked_mul(Uint128::from(state.partial_liquidation_penalty_percentage.numerator()))?
-            .checked_div(Uint128::from(state.partial_liquidation_penalty_percentage.denominator()))?;
+            .checked_mul(Uint128::from(
+                state.partial_liquidation_penalty_percentage.numerator(),
+            ))?
+            .checked_div(Uint128::from(
+                state.partial_liquidation_penalty_percentage.denominator(),
+            ))?;
         let maximum_base_asset_value_closed = base_asset_value
-            .checked_mul(Uint128::from(state.partial_liquidation_close_percentage.numerator()))?
-            .checked_div(Uint128::from(state.partial_liquidation_close_percentage.denominator()))?;
+            .checked_mul(Uint128::from(
+                state.partial_liquidation_close_percentage.numerator(),
+            ))?
+            .checked_div(Uint128::from(
+                state.partial_liquidation_close_percentage.denominator(),
+            ))?;
         for market_status in market_statuses.iter() {
             if market_status.base_asset_value.is_zero() {
                 continue;
@@ -947,12 +985,17 @@ pub fn try_liquidate(
                 }
             }
 
-            let market_position = POSITIONS.load(deps.storage, (&user_address, market_index.to_string()))?;
+            let market_position =
+                POSITIONS.load(deps.storage, (&user_address, market_index.to_string()))?;
 
             let mut quote_asset_amount = market_status
                 .base_asset_value
-                .checked_mul(Uint128::from(state.partial_liquidation_close_percentage.numerator()))?
-                .checked_div(Uint128::from(state.partial_liquidation_close_percentage.denominator()))?;
+                .checked_mul(Uint128::from(
+                    state.partial_liquidation_close_percentage.numerator(),
+                ))?
+                .checked_div(Uint128::from(
+                    state.partial_liquidation_close_percentage.denominator(),
+                ))?;
 
             let mark_price_before_i128 = mark_price_before.u128() as i128;
             let reduce_position_slippage = match market_status.close_position_slippage {
@@ -1047,33 +1090,29 @@ pub fn try_liquidate(
             .unsigned_abs();
 
             let mark_price_after = market.amm.mark_price()?;
-
-            let mut len = LENGTH.load(deps.storage)?;
-            let trade_history_info_length = len.trade_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
-            len.trade_history_length = trade_history_info_length;
-            LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
-                Ok(len)
-            })?;        
-            TRADE_HISTORY.save(
-                deps.storage,
-                (&user_address, trade_history_info_length.to_string()),
-                &TradeRecord {
-                    ts: now,
-                    user: user_address.clone(),
-                    direction: direction_to_reduce,
-                    base_asset_amount: Uint128::from(base_asset_amount),
-                    quote_asset_amount,
-                    mark_price_before,
-                    mark_price_after,
-                    fee: Uint128::zero(),
-                    referrer_reward: Uint128::zero(),
-                    referee_discount: Uint128::zero(),
-                    token_discount: Uint128::zero(),
-                    liquidation: true,
-                    market_index,
-                    oracle_price: market_status.oracle_status.price_data.price,
-                },
-            )?;
+            let message_h = CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: state.history_contract.clone().to_string(),
+                msg: to_binary(&HistoryExecuteMsg::RecordTrade {
+                    t: TradeRecord {
+                        ts: now,
+                        user: user_address.clone(),
+                        direction: direction_to_reduce,
+                        base_asset_amount: Uint128::from(base_asset_amount),
+                        quote_asset_amount,
+                        mark_price_before,
+                        mark_price_after,
+                        fee: Uint128::zero(),
+                        referrer_reward: Uint128::zero(),
+                        referee_discount: Uint128::zero(),
+                        token_discount: Uint128::zero(),
+                        liquidation: true,
+                        market_index,
+                        oracle_price: market_status.oracle_status.price_data.price,
+                    },
+                })?,
+                funds: vec![],
+            });
+            messages.push(message_h);
 
             margin_requirement = margin_requirement.checked_sub(
                 market_status
@@ -1112,9 +1151,11 @@ pub fn try_liquidate(
 
     user = USERS.load(deps.storage, &user_address)?;
     user.collateral = user.collateral.checked_sub(liquidation_fee)?;
-    USERS.update(deps.storage, &user_address, |_u| -> Result<User, ContractError> {
-        Ok(user)
-    })?;
+    USERS.update(
+        deps.storage,
+        &user_address,
+        |_u| -> Result<User, ContractError> { Ok(user) },
+    )?;
 
     let fee_to_liquidator = if is_full_liquidation {
         withdrawal_amount.checked_div(Uint128::from(
@@ -1140,7 +1181,7 @@ pub fn try_liquidate(
             |_m| -> Result<User, ContractError> { Ok(liquidator) },
         )?;
     }
-    let mut messages: Vec<CosmosMsg> = vec![];
+
     if fee_to_insurance_fund.gt(&Uint128::zero()) {
         let message = CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: state.collateral_vault.to_string(),
@@ -1153,33 +1194,33 @@ pub fn try_liquidate(
         messages.push(message);
     }
 
-    let mut len = LENGTH.load(deps.storage)?;
-    let liquidation_history_info_length = len.liquidation_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
-    len.liquidation_history_length = liquidation_history_info_length;
-    LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
-        Ok(len)
-    })?;
-    LIQUIDATION_HISTORY.save(
-        deps.storage,
-        (user_address.clone(), liquidation_history_info_length.to_string()),
-        &LiquidationRecord {
-            ts: now,
-            record_id: liquidation_history_info_length,
-            user: user_address,
-            partial: !is_full_liquidation,
-            base_asset_value,
-            base_asset_value_closed,
-            liquidation_fee,
-            liquidator: info.sender.clone(),
-            total_collateral,
-            collateral,
-            unrealized_pnl: Number128::new(unrealized_pnl),
-            margin_ratio,
-            fee_to_liquidator: fee_to_liquidator.u128() as u64,
-            fee_to_insurance_fund: fee_to_insurance_fund.u128() as u64,
-        },
-    )?;
-    Ok(res.add_messages(messages))
+    for fp in f {
+        let message: CosmosMsg = CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: state.history_contract.clone().to_string(),
+            msg: to_binary(&HistoryExecuteMsg::RecordFundingPayment { f: fp })?,
+            funds: vec![],
+        });
+        messages.push(message);
+    }
+
+    LiquidationRecord {
+        ts: now,
+        user: user_address,
+        partial: !is_full_liquidation,
+        base_asset_value,
+        base_asset_value_closed,
+        liquidation_fee,
+        liquidator: info.sender.clone(),
+        total_collateral,
+        collateral,
+        unrealized_pnl: Number128::new(unrealized_pnl),
+        margin_ratio,
+        fee_to_liquidator: fee_to_liquidator.u128() as u64,
+        fee_to_insurance_fund: fee_to_insurance_fund.u128() as u64,
+    };
+    Ok(res
+        .add_messages(messages)
+        .add_attribute("method", "try_liquidate"))
 }
 
 pub fn try_settle_funding_payment(
@@ -1191,5 +1232,18 @@ pub fn try_settle_funding_payment(
     let user_address = info.sender;
 
     let f = controller::funding::settle_funding_payment(&mut deps, &user_address, now)?;
-    Ok(Response::new().add_attribute("method", "try_settle_funding_payment"))
+    let state = STATE.load(deps.storage)?;
+    let mut messages: Vec<CosmosMsg> = vec![];
+    for fp in f {
+        let message: CosmosMsg = CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: state.history_contract.clone().to_string(),
+            msg: to_binary(&HistoryExecuteMsg::RecordFundingPayment { f: fp })?,
+            funds: vec![],
+        });
+        messages.push(message);
+    }
+
+    Ok(Response::new()
+        .add_messages(messages)
+        .add_attribute("method", "try_settle_funding_payment"))
 }
