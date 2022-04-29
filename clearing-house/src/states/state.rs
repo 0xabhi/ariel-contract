@@ -31,17 +31,6 @@ pub struct State {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct Length {
-    pub curve_history_length: u64,
-    pub deposit_history_length: u64,
-    pub funding_payment_history_length: u64,
-    pub funding_rate_history_length: u64,
-    pub liquidation_history_length: u64,
-    pub order_history_length: u64,
-    pub trade_history_length: u64,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct OrderState {
     pub min_order_quote_asset_amount: Uint128, 
     pub reward: Decimal,
@@ -53,4 +42,3 @@ pub const ADMIN: Admin = Admin::new("admin");
 pub const FEESTRUCTURE: Item<FeeStructure> = Item::new("fee_structure");
 pub const ORACLEGUARDRAILS: Item<OracleGuardRails> = Item::new("oracle_guard_rails");
 pub const ORDERSTATE: Item<OrderState> = Item::new("order_state");
-pub const LENGTH : Item<Length> = Item::new("length");

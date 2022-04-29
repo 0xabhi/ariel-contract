@@ -62,8 +62,6 @@ pub enum ContractError {
     UnableToLoadOracle,
     #[error("Oracle/Mark Spread Too Large")]
     OracleMarkSpreadLimit,
-    #[error("Clearing House history already initialized")]
-    HistoryAlreadyInitialized,
     #[error("Exchange is paused")]
     ExchangePaused,
     #[error("Invalid whitelist token")]

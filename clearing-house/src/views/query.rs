@@ -1,18 +1,15 @@
 use crate::helpers::amm::use_oracle_price_for_margin_calculation;
 use crate::helpers::position::{calculate_updated_collateral, calculate_slippage};
 use crate::states::constants::{
-    AMM_TO_QUOTE_PRECISION_RATIO, DEFAULT_LIMIT, MARGIN_PRECISION, MARK_PRICE_PRECISION, MAX_LIMIT,
+    MARGIN_PRECISION,
 };
 use crate::helpers::oracle::get_oracle_status;
 use crate::helpers::position::{
     calculate_base_asset_value_and_pnl, calculate_base_asset_value_and_pnl_with_oracle_price,
-    direction_to_close_position,
 };
 use crate::ContractError;
-// use crate::helpers::casting::cast_to_i64;
-use crate::states::history::*;
 use crate::states::market::{LiquidationStatus, LiquidationType, MarketStatus, MARKETS};
-use crate::states::state::{ADMIN, STATE, ORACLEGUARDRAILS, ORDERSTATE, FEESTRUCTURE, LENGTH};
+use crate::states::state::{ADMIN, STATE, ORACLEGUARDRAILS, ORDERSTATE, FEESTRUCTURE};
 use crate::states::user::{POSITIONS, USERS};
 
 use crate::package::helper::addr_validate_to_lower;
@@ -20,9 +17,8 @@ use crate::package::helper::addr_validate_to_lower;
 use crate::package::number::Number128;
 use crate::package::response::*;
 
-use crate::package::types::{OracleGuardRails, PositionDirection};
-use cosmwasm_std::{Addr, Deps, Order, Uint128};
-use cw_storage_plus::{Bound, PrimaryKey};
+use crate::package::types::{OracleGuardRails};
+use cosmwasm_std::{Addr, Deps,  Uint128};
 
 pub fn get_user(deps: Deps, user_address: String) -> Result<UserResponse, ContractError> {
     let user = USERS.load(
@@ -228,241 +224,6 @@ pub fn get_fee_structure(deps: Deps) -> Result<FeeStructureResponse, ContractErr
         referee_discount: fs.referee_discount,
     };
     Ok(res)
-}
-
-pub fn get_length(deps: Deps) -> Result<LengthResponse, ContractError> {
-    let len = LENGTH.load(deps.storage)?;
-    let length = LengthResponse {
-        curve_history_length: len.curve_history_length,
-        deposit_history_length: len.deposit_history_length,
-        funding_payment_history_length: len.funding_payment_history_length,
-        funding_rate_history_length: len.funding_rate_history_length,
-        liquidation_history_length: len.liquidation_history_length,
-        order_history_length: len.order_history_length,
-        trade_history_length: len.trade_history_length,
-    };
-    Ok(length)
-}
-
-pub fn get_curve_history(
-    deps: Deps,
-    start_after: Option<String>,
-    limit: Option<u32>,
-) -> Result<Vec<CurveHistoryResponse>, ContractError> {
-    let chl = LENGTH.load(deps.storage)?.curve_history_length;
-    let mut curves: Vec<CurveHistoryResponse> = vec![];
-    if chl > 0 {
-        let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
-        let start = start_after
-            .map(|start| start.joined_key())
-            .map(Bound::Exclusive);
-
-        curves = CURVEHISTORY
-            .range(deps.storage, start, None, Order::Descending)
-            .filter_map(|curve_record| {
-                curve_record.ok().map(|curve| CurveHistoryResponse {
-                    ts: curve.1.ts,
-                    record_id: curve.1.record_id,
-                    market_index: curve.1.market_index,
-                    peg_multiplier_before: curve.1.peg_multiplier_before,
-                    base_asset_reserve_before: curve.1.base_asset_reserve_before,
-                    quote_asset_reserve_before: curve.1.quote_asset_reserve_before,
-                    sqrt_k_before: curve.1.sqrt_k_before,
-                    peg_multiplier_after: curve.1.peg_multiplier_after,
-                    base_asset_reserve_after: curve.1.base_asset_reserve_after,
-                    quote_asset_reserve_after: curve.1.quote_asset_reserve_after,
-                    sqrt_k_after: curve.1.sqrt_k_after,
-                    base_asset_amount_long: curve.1.base_asset_amount_long,
-                    base_asset_amount_short: curve.1.base_asset_amount_short,
-                    base_asset_amount: curve.1.base_asset_amount,
-                    open_interest: curve.1.open_interest,
-                    total_fee: curve.1.total_fee,
-                    total_fee_minus_distributions: curve.1.total_fee_minus_distributions,
-                    adjustment_cost: curve.1.adjustment_cost,
-                    oracle_price: curve.1.oracle_price,
-                })
-            })
-            .take(limit)
-            .collect();
-    }
-    Ok(curves)
-}
-
-pub fn get_deposit_history(
-    deps: Deps,
-    user_address: String,
-    start_after: Option<String>,
-    limit: Option<u32>,
-) -> Result<Vec<DepositHistoryResponse>, ContractError> {
-    let user_addr = addr_validate_to_lower(deps.api, &user_address.to_string())?;
-    let mut deposit_history: Vec<DepositHistoryResponse> = vec![];
-    let user_cumulative_deposit = (USERS.load(deps.storage, &user_addr)?).cumulative_deposits;
-    if user_cumulative_deposit.u128() > 0 {
-        let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
-        let start = start_after
-            .map(|start| start.joined_key())
-            .map(Bound::Exclusive);
-        deposit_history = DEPOSIT_HISTORY
-            .prefix(user_addr)
-            .range(deps.storage, start, None, Order::Descending)
-            .filter_map(|records| {
-                records.ok().map(|record| DepositHistoryResponse {
-                    ts: record.1.ts,
-                    record_id: record.1.record_id,
-                    user: record.1.user.to_string(),
-                    direction: record.1.direction,
-                    collateral_before: record.1.collateral_before,
-                    cumulative_deposits_before: record.1.cumulative_deposits_before,
-                    amount: record.1.amount,
-                })
-            })
-            .take(limit)
-            .collect();
-    }
-    Ok(deposit_history)
-}
-
-pub fn get_funding_payment_history(
-    deps: Deps,
-    user_address: String,
-    start_after: Option<String>,
-    limit: Option<u32>,
-) -> Result<Vec<FundingPaymentHistoryResponse>, ContractError> {
-    let user_addr = addr_validate_to_lower(deps.api, user_address.as_str())?;
-    let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
-    let start = start_after
-        .map(|start| start.joined_key())
-        .map(Bound::Exclusive);
-    let funding_payment_history = FUNDING_PAYMENT_HISTORY
-        .prefix(&user_addr)
-        .range(deps.storage, start, None, Order::Descending)
-        .filter_map(|funding_payments| {
-            funding_payments
-                .ok()
-                .map(|fp| FundingPaymentHistoryResponse {
-                    ts: fp.1.ts,
-                    record_id: fp.1.record_id,
-                    user: fp.1.user.to_string(),
-                    market_index: fp.1.market_index,
-                    funding_payment: fp.1.funding_payment,
-                    base_asset_amount: fp.1.base_asset_amount,
-                    user_last_cumulative_funding: fp.1.user_last_cumulative_funding,
-                    user_last_funding_rate_ts: fp.1.user_last_funding_rate_ts,
-                    amm_cumulative_funding_long: fp.1.amm_cumulative_funding_long,
-                    amm_cumulative_funding_short: fp.1.amm_cumulative_funding_short,
-                })
-        })
-        .take(limit)
-        .collect();
-    Ok(funding_payment_history)
-}
-
-pub fn get_funding_rate_history(
-    deps: Deps,
-    start_after: Option<String>,
-    limit: Option<u32>,
-) -> Result<Vec<FundingRateHistoryResponse>, ContractError> {
-    let mut fr_history: Vec<FundingRateHistoryResponse> = vec![];
-    let length = LENGTH.load(deps.storage)?;
-    if length.funding_rate_history_length > 0 {
-        let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
-        let start = start_after
-            .map(|start| start.joined_key())
-            .map(Bound::Exclusive);
-        fr_history = FUNDING_RATE_HISTORY
-            .range(deps.storage, start, None, Order::Descending)
-            .filter_map(|fr_records| {
-                fr_records
-                    .ok()
-                    .map(|funding_record| FundingRateHistoryResponse {
-                        ts: funding_record.1.ts,
-                        record_id: funding_record.1.record_id,
-                        market_index: funding_record.1.market_index,
-                        funding_rate: funding_record.1.funding_rate,
-                        cumulative_funding_rate_long: funding_record.1.cumulative_funding_rate_long,
-                        cumulative_funding_rate_short: funding_record
-                            .1
-                            .cumulative_funding_rate_short,
-                        oracle_price_twap: funding_record.1.oracle_price_twap,
-                        mark_price_twap: funding_record.1.mark_price_twap,
-                    })
-            })
-            .take(limit)
-            .collect();
-    }
-    Ok(fr_history)
-}
-
-pub fn get_liquidation_history(
-    deps: Deps,
-    user_address: String,
-    start_after: Option<String>,
-    limit: Option<u32>,
-) -> Result<Vec<LiquidationHistoryResponse>, ContractError> {
-    let user_addr = addr_validate_to_lower(deps.api, &user_address)?;
-
-    let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
-    let start = start_after
-        .map(|start| start.joined_key())
-        .map(Bound::Exclusive);
-    let liq_history = LIQUIDATION_HISTORY
-        .prefix(user_addr)
-        .range(deps.storage, start, None, Order::Descending)
-        .filter_map(|records| {
-            records.ok().map(|record| LiquidationHistoryResponse {
-                ts: record.1.ts,
-                record_id: record.1.record_id,
-                user: record.1.user.to_string(),
-                partial: record.1.partial,
-                base_asset_value: record.1.base_asset_value,
-                base_asset_value_closed: record.1.base_asset_value_closed,
-                liquidation_fee: record.1.liquidation_fee,
-                fee_to_liquidator: record.1.fee_to_liquidator,
-                fee_to_insurance_fund: record.1.fee_to_insurance_fund,
-                liquidator: record.1.liquidator.to_string(),
-                total_collateral: record.1.total_collateral,
-                collateral: record.1.collateral,
-                unrealized_pnl: record.1.unrealized_pnl,
-                margin_ratio: record.1.margin_ratio,
-            })
-        })
-        .take(limit)
-        .collect();
-    Ok(liq_history)
-}
-
-pub fn get_trade_history(
-    deps: Deps,
-    start_after: Option<String>,
-    limit: Option<u32>,
-) -> Result<Vec<TradeHistoryResponse>, ContractError> {
-    let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
-    let start = start_after
-        .map(|start| start.joined_key())
-        .map(Bound::Exclusive);
-    let trade_history = TRADE_HISTORY
-        .range(deps.storage, start, None, Order::Descending)
-        .filter_map(|records| {
-            records.ok().map(|record| TradeHistoryResponse {
-                ts: record.1.ts,
-                user: record.1.user.to_string(),
-                direction: record.1.direction,
-                base_asset_amount: record.1.base_asset_amount,
-                quote_asset_amount: record.1.quote_asset_amount,
-                mark_price_before: record.1.mark_price_before,
-                mark_price_after: record.1.mark_price_after,
-                fee: record.1.fee,
-                referrer_reward: record.1.referrer_reward,
-                referee_discount: record.1.referee_discount,
-                token_discount: record.1.token_discount,
-                liquidation: record.1.liquidation,
-                market_index: record.1.market_index,
-                oracle_price: record.1.oracle_price,
-            })
-        })
-        .take(limit)
-        .collect();
-    Ok(trade_history)
 }
 
 pub fn get_market_info(deps: Deps, market_index: u64) -> Result<MarketInfoResponse, ContractError> {

@@ -8,7 +8,7 @@ use cw2::set_contract_version;
 // use cw_utils::maybe_addr;
 
 use crate::states::constants::*;
-use crate::states::state::{State, OrderState, ADMIN, FEESTRUCTURE, ORACLEGUARDRAILS, ORDERSTATE, STATE, LENGTH, Length};
+use crate::states::state::{State, OrderState, ADMIN, FEESTRUCTURE, ORACLEGUARDRAILS, ORDERSTATE, STATE};
 
 use crate::package::execute::{ExecuteMsg, InstantiateMsg};
 use crate::package::helper::addr_validate_to_lower;
@@ -104,15 +104,6 @@ pub fn instantiate(
     ORACLEGUARDRAILS.save(deps.storage, &oracle_gr)?;
     ORDERSTATE.save(deps.storage, &orderstate)?;
 
-    LENGTH.save(deps.storage, &Length{
-        curve_history_length: 0,
-        deposit_history_length: 0,
-        funding_payment_history_length: 0,
-        funding_rate_history_length: 0,
-        liquidation_history_length: 0,
-        order_history_length: 0,
-        trade_history_length: 0,
-    })?;
     Ok(Response::new()
         .add_attribute("method", "instantiate")
         .add_attribute("owner", info.sender.clone()))
@@ -393,50 +384,8 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> Result<Binary, ContractErr
         QueryMsg::GetOracleGuardRails {} => Ok(to_binary(&get_oracle_guard_rails(deps)?)?),
         QueryMsg::GetOrderState {} => Ok(to_binary(&get_order_state(deps)?)?),
         QueryMsg::GetFeeStructure {} => Ok(to_binary(&get_fee_structure(deps)?)?),
-        QueryMsg::GetCurveHistory { start_after, limit } => {
-            Ok(to_binary(&get_curve_history(deps, start_after, limit)?)?)
-        }
-        QueryMsg::GetDepositHistory {
-            user_address,
-            start_after,
-            limit,
-        } => Ok(to_binary(&get_deposit_history(
-            deps,
-            user_address,
-            start_after,
-            limit,
-        )?)?),
-        QueryMsg::GetFundingPaymentHistory {
-            user_address,
-            start_after,
-            limit,
-        } => Ok(to_binary(&get_funding_payment_history(
-            deps,
-            user_address,
-            start_after,
-            limit,
-        )?)?),
-        QueryMsg::GetFundingRateHistory { start_after, limit } => Ok(to_binary(
-            &get_funding_rate_history(deps, start_after, limit)?,
-        )?),
-        QueryMsg::GetLiquidationHistory {
-            user_address,
-            start_after,
-            limit,
-        } => Ok(to_binary(&get_liquidation_history(
-            deps,
-            user_address,
-            start_after,
-            limit,
-        )?)?),
-        QueryMsg::GetTradeHistory { start_after, limit } => {
-            Ok(to_binary(&get_trade_history(deps, start_after, limit)?)?)
-        }
         QueryMsg::GetMarketInfo { market_index } => {
             Ok(to_binary(&get_market_info(deps, market_index)?)?)
-        }
-        QueryMsg::GetLength { } => {
-            Ok(to_binary(&get_length(deps)?)?)
         }
     }
 }

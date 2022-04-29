@@ -2,6 +2,7 @@ use crate::package::number::Number128;
 use cosmwasm_std::{Uint128, Addr};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use cw_storage_plus::{Map, Item};
 use crate::package::types::{Order, PositionDirection, DepositDirection};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -20,6 +21,7 @@ impl Default for Type {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct CurveRecord {
     pub ts: u64,
+    pub record_id: u64,
     pub market_index: u64,
     pub peg_multiplier_before: Uint128,
     pub peg_multiplier_after: Uint128,
@@ -39,9 +41,12 @@ pub struct CurveRecord {
     pub oracle_price: Number128
 }
 
+pub const CURVEHISTORY: Map<String,  CurveRecord> = Map::new("curve_history");
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct DepositRecord {
     pub ts: u64,
+    pub record_id: u64,
     pub user: Addr,
     pub direction: DepositDirection,
     pub collateral_before: Uint128,
@@ -49,9 +54,12 @@ pub struct DepositRecord {
     pub amount: u64,
 }
 
+pub const DEPOSIT_HISTORY: Map<(Addr, String),  DepositRecord> = Map::new("deposit_history");
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct FundingPaymentRecord {
     pub ts: u64,
+    pub record_id: u64,
     pub user: Addr,
     pub market_index: u64,
     pub funding_payment: Number128,
@@ -62,9 +70,12 @@ pub struct FundingPaymentRecord {
     pub amm_cumulative_funding_short: Number128,
 }
 
+pub const FUNDING_PAYMENT_HISTORY: Map<(&Addr, String),  FundingPaymentRecord> = Map::new("funding_history");
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct FundingRateRecord {
     pub ts: u64,
+    pub record_id: u64,
     pub market_index: u64,
     pub funding_rate: Number128,
     pub cumulative_funding_rate_long: Number128,
@@ -73,9 +84,12 @@ pub struct FundingRateRecord {
     pub mark_price_twap: Uint128,
 }
 
+pub const FUNDING_RATE_HISTORY: Map<String,  FundingRateRecord> = Map::new("funding_payment_history");
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct LiquidationRecord {
     pub ts: u64,
+    pub record_id: u64,
     pub user: Addr,
     pub partial: bool,
     pub base_asset_value: Uint128,
@@ -90,36 +104,40 @@ pub struct LiquidationRecord {
     pub margin_ratio: Uint128,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub enum OrderAction {
-    Place,
-    Cancel,
-    Fill,
-    Expire,
-}
+pub const LIQUIDATION_HISTORY: Map<(Addr, String),  LiquidationRecord> = Map::new("liquidation_history");
 
-impl Default for OrderAction {
-    // UpOnly
-    fn default() -> Self {
-        OrderAction::Place
-    }
-}
+// #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+// pub enum OrderAction {
+//     Place,
+//     Cancel,
+//     Fill,
+//     Expire,
+// }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct OrderRecord {
-    pub ts: u64,
-    pub user: Addr,
-    pub order: Order,
-    pub action: OrderAction,
-    pub filler: Addr,
-    pub trade_record_id: u64,
-    pub base_asset_amount_filled: Uint128,
-    pub quote_asset_amount_filled: Uint128,
-    pub fee: Uint128,
-    pub filler_reward: Uint128,
-    pub quote_asset_amount_surplus: Uint128,
-    pub position_index: u64,
-}
+// impl Default for OrderAction {
+//     // UpOnly
+//     fn default() -> Self {
+//         OrderAction::Place
+//     }
+// }
+
+// #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+// pub struct OrderRecord {
+//     pub ts: u64,
+//     pub user: Addr,
+//     pub order: Order,
+//     pub action: OrderAction,
+//     pub filler: Addr,
+//     pub trade_record_id: u64,
+//     pub base_asset_amount_filled: Uint128,
+//     pub quote_asset_amount_filled: Uint128,
+//     pub fee: Uint128,
+//     pub filler_reward: Uint128,
+//     pub quote_asset_amount_surplus: Uint128,
+//     pub position_index: u64,
+// }
+
+// pub const ORDER_HISTORY: Map<String,  OrderRecord> = Map::new("order_history");
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct TradeRecord {
@@ -138,3 +156,25 @@ pub struct TradeRecord {
     pub market_index: u64,
     pub oracle_price: Number128,
 }
+
+pub const TRADE_HISTORY: Map<(&Addr, String),  TradeRecord> = Map::new("trade_history");
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct Length {
+    pub curve_history_length: u64,
+    pub deposit_history_length: u64,
+    pub funding_payment_history_length: u64,
+    pub funding_rate_history_length: u64,
+    pub liquidation_history_length: u64,
+    pub trade_history_length: u64,
+    // pub order_history_length: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct State {
+    pub clearing_house: Addr,
+    pub owner: Addr,
+}
+
+pub const STATE: Item<State> = Item::new("state");
+pub const LENGTH : Item<Length> = Item::new("length");

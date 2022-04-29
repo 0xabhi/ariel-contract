@@ -6,8 +6,6 @@ use crate::ContractError;
 
 use crate::states::market::{Amm, Market, MARKETS};
 use crate::states::state::OrderState;
-use crate::states::state::LENGTH;
-use crate::states::state::Length;
 use crate::states::state::ORDERSTATE;
 use crate::states::state::State;
 use crate::states::state::ADMIN;
@@ -244,19 +242,8 @@ pub fn try_repeg_amm_curve(
     let base_asset_reserve_after = market.amm.base_asset_reserve;
     let quote_asset_reserve_after = market.amm.quote_asset_reserve;
     let sqrt_k_after = market.amm.sqrt_k;
-
-    let mut len = LENGTH.load(deps.storage)?;
-    let curve_history_info_length = len.curve_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
-    len.curve_history_length = curve_history_info_length;
-    LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
-        Ok(len)
-    })?;
-    CURVEHISTORY.save(
-        deps.storage,
-        curve_history_info_length.to_string(),
-        &CurveRecord {
+    let c = CurveRecord {
             ts: now,
-            record_id: curve_history_info_length,
             market_index,
             peg_multiplier_before,
             base_asset_reserve_before,
@@ -278,8 +265,7 @@ pub fn try_repeg_amm_curve(
             total_fee_minus_distributions: market.amm.total_fee_minus_distributions,
             adjustment_cost: Number128::new(adjustment_cost),
             oracle_price
-        },
-    )?;
+        };
     Ok(Response::new().add_attribute("method", "try_repeg_amm_curve"))
 }
 
