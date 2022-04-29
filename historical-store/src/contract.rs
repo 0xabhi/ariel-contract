@@ -117,19 +117,31 @@ fn try_record_curve(deps: DepsMut, info: MessageInfo, c: CurveRecord) -> Result<
 }
 
 fn try_new_clearing_house(deps: DepsMut, info: MessageInfo, new_house: String) -> Result<Response, ContractError> {
-    let state = STATE.load(deps.storage)?;
+    let mut state = STATE.load(deps.storage)?;
     if info.sender != state.owner {
         return Err(ContractError::UnauthorizedClearingHouse {});
     };
+
+    state.clearing_house = deps.api.addr_validate(&new_house)?;
+
+    STATE.update(deps.storage, |_s| -> Result<State, ContractError> {
+        Ok(state)
+    })?;
 
     Ok(Response::new().add_attribute("method", "record_deposit"))
 }
 
 fn try_new_admin(deps: DepsMut, info: MessageInfo, new_admin: String) -> Result<Response, ContractError> {
-    let state = STATE.load(deps.storage)?;
+    let mut state = STATE.load(deps.storage)?;
     if info.sender != state.owner {
         return Err(ContractError::UnauthorizedClearingHouse {});
     };
+
+    state.owner = deps.api.addr_validate(&new_admin)?;
+
+    STATE.update(deps.storage, |_s| -> Result<State, ContractError> {
+        Ok(state)
+    })?;
 
     Ok(Response::new().add_attribute("method", "record_deposit"))
 }
@@ -223,7 +235,6 @@ pub fn get_curve_history(
             .filter_map(|curve_record| {
                 curve_record.ok().map(|curve| CurveHistoryResponse {
                     ts: curve.1.ts,
-                    record_id: curve.1.record_id,
                     market_index: curve.1.market_index,
                     peg_multiplier_before: curve.1.peg_multiplier_before,
                     base_asset_reserve_before: curve.1.base_asset_reserve_before,
@@ -256,12 +267,11 @@ pub fn get_deposit_history(
     limit: Option<u32>,
 ) -> Result<Vec<DepositHistoryResponse>, ContractError> {
     let user_addr = addr_validate_to_lower(deps.api, &user_address.to_string())?;
-    let mut deposit_history: Vec<DepositHistoryResponse> = vec![];
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
     let start = start_after
         .map(|start| start.joined_key())
         .map(Bound::Exclusive);
-    deposit_history = DEPOSIT_HISTORY
+    let deposit_history = DEPOSIT_HISTORY
         .prefix(user_addr)
         .range(deps.storage, start, None, Order::Descending)
         .filter_map(|records| {
