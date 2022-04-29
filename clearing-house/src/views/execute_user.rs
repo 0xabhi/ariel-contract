@@ -88,7 +88,7 @@ pub fn try_deposit_collateral(
         |_m| -> Result<User, ContractError> { Ok(user) },
     )?;
 
-    controller::funding::settle_funding_payment(&mut deps, &user_address, now)?;
+    let f = controller::funding::settle_funding_payment(&mut deps, &user_address, now)?;
     //get and send tokens to collateral vault
     let message: CosmosMsg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: state.insurance_vault.to_string(),
@@ -139,7 +139,7 @@ pub fn try_withdraw_collateral(
     let collateral_before = user.collateral;
     let cumulative_deposits_before = user.cumulative_deposits;
 
-    controller::funding::settle_funding_payment(&mut deps, &user_address, now)?;
+    let f = controller::funding::settle_funding_payment(&mut deps, &user_address, now)?;
     user = USERS.may_load(deps.storage, &user_address)?.unwrap();
 
     if (amount as u128) > user.collateral.u128() {
@@ -243,7 +243,7 @@ pub fn try_open_position(
     if quote_asset_amount.is_zero() {
         return Err(ContractError::TradeSizeTooSmall.into());
     }
-    controller::funding::settle_funding_payment(&mut deps, &user_address, now)?;
+    let f = controller::funding::settle_funding_payment(&mut deps, &user_address, now)?;
 
     let position_index = market_index.clone();
     let mark_price_before: Uint128;
@@ -422,7 +422,7 @@ pub fn try_open_position(
     }
 
     {
-        controller::funding::update_funding_rate(
+        let f = controller::funding::update_funding_rate(
             &mut deps,
             market_index,
             now,
@@ -451,7 +451,7 @@ pub fn try_close_position(
     let state = STATE.load(deps.storage)?;
     let oracle_guard_rails = ORACLEGUARDRAILS.load(deps.storage)?;
     let fee_structure = FEESTRUCTURE.load(deps.storage)?;
-    controller::funding::settle_funding_payment(&mut deps, &user_address, now)?;
+    let f = controller::funding::settle_funding_payment(&mut deps, &user_address, now)?;
 
     let position_index = market_index.clone();
     let market_position = POSITIONS.load(deps.storage, (&user_address.clone(), market_index.to_string()))?;
@@ -576,34 +576,25 @@ pub fn try_close_position(
         return Err(ContractError::OracleMarkSpreadLimit.into());
     }
 
-    let mut len = LENGTH.load(deps.storage)?;
-    let trade_history_info_length = len.trade_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
-    len.trade_history_length = trade_history_info_length;
-    LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
-        Ok(len)
-    })?;
-    TRADE_HISTORY.save(
-        deps.storage,
-        (&user_address , trade_history_info_length.to_string()),
-        &TradeRecord {
-            ts: now,
-            user: user_address.clone(),
-            direction: direction_to_close,
-            base_asset_amount,
-            quote_asset_amount,
-            mark_price_before,
-            mark_price_after,
-            fee: user_fee,
-            referrer_reward,
-            referee_discount,
-            token_discount,
-            liquidation: false,
-            market_index,
-            oracle_price: oracle_price_after,
-        },
-    )?;
-
-    controller::funding::update_funding_rate(
+   
+    let t = TradeRecord {
+        ts: now,
+        user: user_address.clone(),
+        direction: direction_to_close,
+        base_asset_amount,
+        quote_asset_amount,
+        mark_price_before,
+        mark_price_after,
+        fee: user_fee,
+        referrer_reward,
+        referee_discount,
+        token_discount,
+        liquidation: false,
+        market_index,
+        oracle_price: oracle_price_after,
+    };
+   
+    let f = controller::funding::update_funding_rate(
         &mut deps,
         market_index,
         now,
@@ -704,7 +695,7 @@ pub fn try_liquidate(
     let user_address = addr_validate_to_lower(deps.api, &user)?;
     let now = env.block.time.seconds();
 
-    controller::funding::settle_funding_payment(&mut deps, &user_address, now)?;
+    let f = controller::funding::settle_funding_payment(&mut deps, &user_address, now)?;
 
     let mut user = USERS.load(deps.storage, &user_address)?;
 
@@ -1199,6 +1190,6 @@ pub fn try_settle_funding_payment(
     let now = env.block.time.seconds();
     let user_address = info.sender;
 
-    controller::funding::settle_funding_payment(&mut deps, &user_address, now)?;
+    let f = controller::funding::settle_funding_payment(&mut deps, &user_address, now)?;
     Ok(Response::new().add_attribute("method", "try_settle_funding_payment"))
 }

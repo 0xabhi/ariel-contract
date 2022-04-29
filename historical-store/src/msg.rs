@@ -80,7 +80,6 @@ pub enum QueryMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct CurveHistoryResponse {
     pub ts: u64,
-    pub record_id: u64,
     pub market_index: u64,
     pub peg_multiplier_before: Uint128,
     pub base_asset_reserve_before: Uint128,
@@ -103,7 +102,6 @@ pub struct CurveHistoryResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct DepositHistoryResponse {
     pub ts: u64,
-    pub record_id: u64,
     pub user: String,
     pub direction: DepositDirection,
     pub collateral_before: Uint128,
@@ -114,7 +112,6 @@ pub struct DepositHistoryResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct FundingPaymentHistoryResponse {
     pub ts: u64,
-    pub record_id: u64,
     pub user: String,
     pub market_index: u64,
     pub funding_payment: Number128,
@@ -128,7 +125,6 @@ pub struct FundingPaymentHistoryResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct FundingRateHistoryResponse {
     pub ts: u64,
-    pub record_id: u64,
     pub market_index: u64,
     pub funding_rate: Number128,
     pub cumulative_funding_rate_long: Number128,
@@ -140,7 +136,6 @@ pub struct FundingRateHistoryResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct LiquidationHistoryResponse {
     pub ts: u64,
-    pub record_id: u64,
     pub user: String,
     pub partial: bool,
     pub base_asset_value: Uint128,

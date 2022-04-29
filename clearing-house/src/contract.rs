@@ -83,6 +83,7 @@ pub fn instantiate(
         admin_controls_prices: true,
         collateral_vault: addr_validate_to_lower(deps.api, &msg.collateral_vault).unwrap(),
         insurance_vault: addr_validate_to_lower(deps.api, &msg.insurance_vault).unwrap(),
+        history_contract:  info.sender.clone(),
         oracle: addr_validate_to_lower(deps.api, &msg.oracle)?,
         margin_ratio_initial: Uint128::from(2000u128),
         margin_ratio_maintenance: Uint128::from(500u128),
@@ -90,10 +91,10 @@ pub fn instantiate(
         partial_liquidation_close_percentage: Decimal::percent(25),
         partial_liquidation_penalty_percentage: Decimal::percent(25),
         full_liquidation_penalty_percentage: Decimal::one(),
+        partial_liquidation_liquidator_share_denominator: 1u64,
         full_liquidation_liquidator_share_denominator: 2000u64,
         max_deposit: Uint128::zero(),
         markets_length: 0u64,
-        partial_liquidation_liquidator_share_denominator: 1u64,
     };
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     ADMIN.set(deps.branch(), Some(info.sender.clone()))?;

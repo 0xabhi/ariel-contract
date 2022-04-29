@@ -3,7 +3,7 @@ use cosmwasm_std::{Uint128, Addr};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use cw_storage_plus::{Map, Item};
-use crate::package::types::{Order, PositionDirection, DepositDirection};
+use crate::package::types::{PositionDirection, DepositDirection};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub enum Type {
@@ -21,7 +21,6 @@ impl Default for Type {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct CurveRecord {
     pub ts: u64,
-    pub record_id: u64,
     pub market_index: u64,
     pub peg_multiplier_before: Uint128,
     pub peg_multiplier_after: Uint128,
@@ -46,7 +45,6 @@ pub const CURVEHISTORY: Map<String,  CurveRecord> = Map::new("curve_history");
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct DepositRecord {
     pub ts: u64,
-    pub record_id: u64,
     pub user: Addr,
     pub direction: DepositDirection,
     pub collateral_before: Uint128,
@@ -59,7 +57,6 @@ pub const DEPOSIT_HISTORY: Map<(Addr, String),  DepositRecord> = Map::new("depos
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct FundingPaymentRecord {
     pub ts: u64,
-    pub record_id: u64,
     pub user: Addr,
     pub market_index: u64,
     pub funding_payment: Number128,
@@ -75,7 +72,6 @@ pub const FUNDING_PAYMENT_HISTORY: Map<(&Addr, String),  FundingPaymentRecord> =
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct FundingRateRecord {
     pub ts: u64,
-    pub record_id: u64,
     pub market_index: u64,
     pub funding_rate: Number128,
     pub cumulative_funding_rate_long: Number128,
@@ -89,7 +85,6 @@ pub const FUNDING_RATE_HISTORY: Map<String,  FundingRateRecord> = Map::new("fund
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct LiquidationRecord {
     pub ts: u64,
-    pub record_id: u64,
     pub user: Addr,
     pub partial: bool,
     pub base_asset_value: Uint128,

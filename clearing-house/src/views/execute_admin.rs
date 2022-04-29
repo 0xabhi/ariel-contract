@@ -1,5 +1,6 @@
 use crate::controller;
 use crate::helpers;
+use crate::package::history::HistoryExecuteMsg;
 use crate::states::constants::*;
 use crate::states::history::*;
 use crate::ContractError;
@@ -20,6 +21,7 @@ use crate::package::types::OraclePriceData;
 use crate::package::types::{
     FeeStructure, OracleGuardRails, OracleSource, 
 };
+use cosmwasm_std::SubMsg;
 use cosmwasm_std::{
     to_binary, CosmosMsg, Decimal, DepsMut, Env, MessageInfo, Response, Uint128,
     WasmMsg,
@@ -346,7 +348,7 @@ pub fn try_update_funding_rate(
 ) -> Result<Response, ContractError> {
     let now = env.block.time.seconds();
     let funding_paused = STATE.load(deps.storage).unwrap().funding_paused;
-    controller::funding::update_funding_rate(
+    let f = controller::funding::update_funding_rate(
         &mut deps,
         market_index,
         now,
@@ -364,6 +366,9 @@ pub fn try_update_k(
 ) -> Result<Response, ContractError> {
     let now = env.block.time.seconds();
     let mut market = MARKETS.load(deps.storage, market_index.to_string())?;
+    let state = STATE.load(deps.storage)?;
+
+    let subms = vec![];
 
     let base_asset_amount_long = Uint128::from(market.base_asset_amount_long.i128().unsigned_abs());
     let base_asset_amount_short =
@@ -428,24 +433,22 @@ pub fn try_update_k(
 
     let total_fee = amm.total_fee;
     let total_fee_minus_distributions = amm.total_fee_minus_distributions;
-    let mut len = LENGTH.load(deps.storage)?;
-    let curve_history_info_length = len.curve_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
-    len.curve_history_length = curve_history_info_length;
-    LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
-        Ok(len)
-    })?;
 
+    
     let OraclePriceData {
         price: oracle_price,
         ..
     } = market.amm.get_oracle_price()?;
 
-    CURVEHISTORY.save(
+    MARKETS.update(
         deps.storage,
-        curve_history_info_length.to_string(),
-        &CurveRecord {
+        market_index.to_string(),
+        |_m| -> Result<Market, ContractError> { Ok(market) },
+    )?;
+
+    
+    let c = CurveRecord {
             ts: now,
-            record_id: curve_history_info_length,
             market_index,
             peg_multiplier_before,
             base_asset_reserve_before,
@@ -463,14 +466,18 @@ pub fn try_update_k(
             total_fee,
             total_fee_minus_distributions,
             oracle_price
-        },
-    )?;
-    MARKETS.update(
-        deps.storage,
-        market_index.to_string(),
-        |_m| -> Result<Market, ContractError> { Ok(market) },
-    )?;
-    Ok(Response::new().add_attribute("method", "try_update_k"))
+        };
+
+    subms.push(SubMsg::reply_on_success(
+        CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: state.history_contract.to_string(),
+            funds: vec![],
+            msg: to_binary(&HistoryExecuteMsg::RecordCurve { c: c})?,
+        }),
+        1u64,
+    ));
+
+    Ok(Response::new().add_submessages(subms).add_attribute("method", "try_update_k"))
 }
 
 pub fn try_update_margin_ratio(
@@ -800,4 +807,20 @@ pub fn try_feeding_price(
         |_m| -> Result<Market, ContractError> { Ok(market) },
     )?;
     Ok(Response::new().add_attribute("method", "try_update_oracle_address"))
+}
+
+
+pub fn try_update_history_contract(
+    deps: DepsMut,
+    info: MessageInfo,
+    history_contract: String
+) -> Result<Response, ContractError> {
+    ADMIN.assert_admin(deps.as_ref(), &info.sender.clone())?;
+    let state = STATE.load(deps.storage)?;
+    let new_history_contract = deps.api.addr_validate(&history_contract)?;
+    state.history_contract = new_history_contract;
+    STATE.update(deps.storage, |_s| -> Result<State, ContractError> {
+        Ok(state)
+    })?;
+    Ok(Response::new().add_attribute("method", "try_update_history_contract"))
 }

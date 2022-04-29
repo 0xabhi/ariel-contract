@@ -1,8 +1,6 @@
 use std::cmp::max;
 
 use crate::package::number::Number128;
-use crate::states::state::LENGTH;
-use crate::states::state::Length;
 use cosmwasm_std::Addr;
 use cosmwasm_std::DepsMut;
 use cosmwasm_std::Uint128;
@@ -11,8 +9,8 @@ use crate::error::ContractError;
 
 use crate::helpers::amm::normalise_oracle_price;
 use crate::states::history::{
-    FUNDING_PAYMENT_HISTORY, FundingPaymentRecord,
-    FUNDING_RATE_HISTORY, FundingRateRecord,
+    FundingPaymentRecord,
+    FundingRateRecord,
 };
 use crate::states::market::{Market, MARKETS};
 use crate::states::state::ORACLEGUARDRAILS;
@@ -35,7 +33,8 @@ pub fn settle_funding_payment(
     deps: &mut DepsMut,
     user_addr: &Addr,
     now: u64,
-) -> Result<(), ContractError> {
+) -> Result<Vec<FundingPaymentRecord>, ContractError> {
+    let mut fundingpay : Vec<FundingPaymentRecord> = Vec::new();
     let existing_user = USERS.may_load(deps.storage, &user_addr.clone())?;
     let mut funding_payment: i128 = 0;
     let mut user;
@@ -43,7 +42,7 @@ pub fn settle_funding_payment(
         user = existing_user.unwrap();
     }
     else{
-        return Ok(());
+        return Ok(fundingpay);
     }
     let markets_length = STATE.load(deps.storage)?.markets_length;
     for n in 1..markets_length {
@@ -63,18 +62,8 @@ pub fn settle_funding_payment(
                     let market_funding_rate_payment =
                         calculate_funding_payment(amm_cumulative_funding_rate, &m)?;
 
-                    let mut len = LENGTH.load(deps.storage)?;
-                    let funding_payment_history_info_length = len.funding_payment_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
-                    len.funding_payment_history_length = funding_payment_history_info_length;
-                    LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
-                        Ok(len)
-                    })?;
-                    FUNDING_PAYMENT_HISTORY.save(
-                        deps.storage,
-                        (user_addr, funding_payment_history_info_length.to_string()),
-                        &FundingPaymentRecord {
+                    fundingpay.push(FundingPaymentRecord {
                             ts: now,
-                            record_id: funding_payment_history_info_length,
                             user: user_addr.clone(),
                             market_index: n,
                             funding_payment: Number128::new(market_funding_rate_payment), //10e13
@@ -83,8 +72,7 @@ pub fn settle_funding_payment(
                             amm_cumulative_funding_long: market.amm.cumulative_funding_rate_long, //10e14
                             amm_cumulative_funding_short: market.amm.cumulative_funding_rate_short, //10e14
                             base_asset_amount: m.base_asset_amount,
-                        },
-                    )?;
+                    });
                     funding_payment = funding_payment
                         .checked_add(market_funding_rate_payment)
                         .ok_or_else(|| (ContractError::MathError))?;
@@ -116,7 +104,7 @@ pub fn settle_funding_payment(
         |_u| -> Result<User, ContractError> { Ok(user) },
     )?;
 
-    Ok(())
+    Ok(fundingpay)
 }
 
 pub fn update_funding_rate(
@@ -125,7 +113,7 @@ pub fn update_funding_rate(
     now: u64,
     funding_paused: bool,
     precomputed_mark_price: Option<Uint128>,
-) -> Result<(), ContractError> {
+) -> Result<Option<FundingRateRecord>, ContractError> {
     let mut market = MARKETS.load(deps.storage, market_index.to_string())?;
     let guard_rails = ORACLEGUARDRAILS.load(deps.storage)?;
 
@@ -225,27 +213,17 @@ pub fn update_funding_rate(
             |_m| -> Result<Market, ContractError> { Ok(market.clone()) },
         )?;
 
-        let mut len = LENGTH.load(deps.storage)?;
-        let funding_rate_history_info_length = len.funding_rate_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
-        len.funding_rate_history_length = funding_rate_history_info_length;
-        LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
-            Ok(len)
-        })?;
-        FUNDING_RATE_HISTORY.save(
-            deps.storage,
-            funding_rate_history_info_length.to_string(),
-            &FundingRateRecord {
+        
+        let f = FundingRateRecord {
                 ts: now,
-                record_id: funding_rate_history_info_length,
                 market_index,
                 funding_rate: Number128::new(funding_rate),
                 cumulative_funding_rate_long: market.amm.cumulative_funding_rate_long,
                 cumulative_funding_rate_short: market.amm.cumulative_funding_rate_short,
                 mark_price_twap,
                 oracle_price_twap: Number128::new(oracle_price_twap),
-            },
-        )?;
-    };
-
-    Ok(())
+        };
+        return Ok(Some(f));
+    }
+    Ok(None)
 }

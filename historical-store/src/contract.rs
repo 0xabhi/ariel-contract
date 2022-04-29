@@ -267,7 +267,6 @@ pub fn get_deposit_history(
         .filter_map(|records| {
             records.ok().map(|record| DepositHistoryResponse {
                 ts: record.1.ts,
-                record_id: record.1.record_id,
                 user: record.1.user.to_string(),
                 direction: record.1.direction,
                 collateral_before: record.1.collateral_before,
@@ -299,7 +298,6 @@ pub fn get_funding_payment_history(
                 .ok()
                 .map(|fp| FundingPaymentHistoryResponse {
                     ts: fp.1.ts,
-                    record_id: fp.1.record_id,
                     user: fp.1.user.to_string(),
                     market_index: fp.1.market_index,
                     funding_payment: fp.1.funding_payment,
@@ -334,7 +332,6 @@ pub fn get_funding_rate_history(
                     .ok()
                     .map(|funding_record| FundingRateHistoryResponse {
                         ts: funding_record.1.ts,
-                        record_id: funding_record.1.record_id,
                         market_index: funding_record.1.market_index,
                         funding_rate: funding_record.1.funding_rate,
                         cumulative_funding_rate_long: funding_record.1.cumulative_funding_rate_long,
@@ -369,7 +366,6 @@ pub fn get_liquidation_history(
         .filter_map(|records| {
             records.ok().map(|record| LiquidationHistoryResponse {
                 ts: record.1.ts,
-                record_id: record.1.record_id,
                 user: record.1.user.to_string(),
                 partial: record.1.partial,
                 base_asset_value: record.1.base_asset_value,
