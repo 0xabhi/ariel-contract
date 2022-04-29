@@ -1,6 +1,6 @@
 use std::ops::Mul;
 use crate::package::number::Number128;
-use num_integer::Roots;
+use integer_sqrt::IntegerSquareRoot;
 use cosmwasm_std::{DepsMut, Uint128};
 
 use crate::error::{ContractError};
@@ -219,7 +219,7 @@ pub fn move_price(
     
     mark.amm.base_asset_reserve = base_asset_reserve;
     mark.amm.quote_asset_reserve = quote_asset_reserve;
-    mark.amm.sqrt_k = Uint128::from(k.u128().sqrt());
+    mark.amm.sqrt_k = Uint128::from(k.u128().integer_sqrt());
 
     MARKETS.update(deps.storage, market_index.to_string(), |_m| -> Result<Market, ContractError> {
         Ok(mark)

@@ -5,7 +5,8 @@ use cosmwasm_std::{Addr, Uint128, Fraction, Decimal};
 use crate::states::state::OrderState;
 use crate::{error::ContractError};
 
-use num_integer::Roots;
+
+use integer_sqrt::IntegerSquareRoot;
 
 use crate::package::types::{FeeStructure, OrderDiscountTier};
 
@@ -263,7 +264,7 @@ fn calculate_filler_reward(
     let time_filler_reward = (time_since_order as u128)
         .checked_mul(100_000_000) // 1e8
         .ok_or_else(|| (ContractError::MathError))?
-        .nth_root(4)
+        .integer_sqrt().integer_sqrt()
         .checked_mul(min_time_filler_reward)
         .ok_or_else(|| (ContractError::MathError))?
         .checked_div(100) // 1e2 = sqrt(sqrt(1e8))

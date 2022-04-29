@@ -359,6 +359,7 @@ pub fn calculate_liquidation_status(
         margin_ratio,
     })
 }
+
 pub fn validate_margin(
     margin_ratio_initial: u32,
     margin_ratio_partial: u32,

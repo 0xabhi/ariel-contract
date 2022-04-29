@@ -1,6 +1,5 @@
 use std::cmp::{max, min};
-
-use num_integer::Roots;
+use integer_sqrt::IntegerSquareRoot;
 
 use crate::error::ContractError;
 
@@ -392,7 +391,7 @@ pub fn calculate_max_base_asset_amount_to_trade(
         .checked_mul(amm.peg_multiplier)?
         .checked_div(PEG_PRECISION)?;
 
-    let new_base_asset_reserve = new_base_asset_reserve_squared.u128().sqrt();
+    let new_base_asset_reserve = new_base_asset_reserve_squared.u128().integer_sqrt();
 
     if new_base_asset_reserve > amm.base_asset_reserve.u128() {
         let max_trade_amount = Uint128::from(new_base_asset_reserve)
