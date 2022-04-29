@@ -8,7 +8,6 @@ use crate::ContractError;
 use crate::states::market::{Amm, Market, MARKETS};
 use crate::states::state::OrderState;
 use crate::states::state::State;
-use crate::states::state::ADMIN;
 use crate::states::state::FEESTRUCTURE;
 use crate::states::state::ORACLEGUARDRAILS;
 use crate::states::state::ORDERSTATE;
@@ -38,11 +37,12 @@ pub fn try_initialize_market(
     margin_ratio_partial: u32,
     margin_ratio_maintenance: u32,
 ) -> Result<Response, ContractError> {
-    ADMIN.assert_admin(deps.as_ref(), &_info.sender.clone())?;
     let now = env.block.time.seconds();
 
     let state = STATE.load(deps.storage)?;
-
+    if state.admin != _info.sender.clone() {
+        return Err(ContractError::Unauthorized {});
+    }
     let existing_market = MARKETS.load(deps.storage, market_index.to_string());
     if existing_market.is_ok() {
         return Err(ContractError::MarketIndexAlreadyInitialized {});
@@ -139,8 +139,10 @@ pub fn try_withdraw_fees(
     market_index: u64,
     amount: u64,
 ) -> Result<Response, ContractError> {
-    ADMIN.assert_admin(deps.as_ref(), &info.sender.clone())?;
     let state = STATE.load(deps.storage)?;
+    if state.admin != info.sender.clone() {
+        return Err(ContractError::Unauthorized {});
+    }
     let mut market = MARKETS.load(deps.storage, market_index.to_string())?;
 
     // A portion of fees must always remain in protocol to be used to keep markets optimal
@@ -187,8 +189,10 @@ pub fn try_withdraw_from_insurance_vault_to_market(
     market_index: u64,
     amount: u64,
 ) -> Result<Response, ContractError> {
-    ADMIN.assert_admin(deps.as_ref(), &info.sender.clone())?;
     let state = STATE.load(deps.storage)?;
+    if state.admin != info.sender.clone() {
+        return Err(ContractError::Unauthorized {});
+    }
 
     let mut market = MARKETS.load(deps.storage, market_index.to_string())?;
     market.amm.total_fee_minus_distributions = market
@@ -264,14 +268,12 @@ pub fn try_repeg_amm_curve(
     let state = STATE.load(deps.storage)?;
     let message: CosmosMsg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: state.history_contract.clone().to_string(),
-        msg: to_binary(&HistoryExecuteMsg::RecordCurve {
-            c,
-        })?,
+        msg: to_binary(&HistoryExecuteMsg::RecordCurve { c })?,
         funds: vec![],
     });
     Ok(Response::new()
-    .add_message(message)
-    .add_attribute("method", "try_repeg_amm_curve"))
+        .add_message(message)
+        .add_attribute("method", "try_repeg_amm_curve"))
 }
 
 pub fn try_update_amm_oracle_twap(
@@ -362,14 +364,12 @@ pub fn try_update_funding_rate(
 
     let message: CosmosMsg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: state.history_contract.clone().to_string(),
-        msg: to_binary(&HistoryExecuteMsg::RecordFundingRate {
-            f: f.unwrap(),
-        })?,
+        msg: to_binary(&HistoryExecuteMsg::RecordFundingRate { f: f.unwrap() })?,
         funds: vec![],
     });
     Ok(Response::new()
-    .add_message(message)
-    .add_attribute("method", "try_update_funding_rate"))
+        .add_message(message)
+        .add_attribute("method", "try_update_funding_rate"))
 }
 
 pub fn try_update_k(
@@ -381,7 +381,6 @@ pub fn try_update_k(
     let now = env.block.time.seconds();
     let mut market = MARKETS.load(deps.storage, market_index.to_string())?;
     let state = STATE.load(deps.storage)?;
-
 
     let base_asset_amount_long = Uint128::from(market.base_asset_amount_long.i128().unsigned_abs());
     let base_asset_amount_short =
@@ -498,7 +497,11 @@ pub fn try_update_margin_ratio(
     margin_ratio_partial: u32,
     margin_ratio_maintenance: u32,
 ) -> Result<Response, ContractError> {
-    ADMIN.assert_admin(deps.as_ref(), &info.sender.clone())?;
+    let state = STATE.load(deps.storage)?;
+    if state.admin != info.sender.clone() {
+        return Err(ContractError::Unauthorized {});
+    }
+
     controller::margin::validate_margin(
         margin_ratio_initial,
         margin_ratio_partial,
@@ -523,8 +526,10 @@ pub fn try_update_partial_liquidation_close_percentage(
     info: MessageInfo,
     value: Decimal,
 ) -> Result<Response, ContractError> {
-    ADMIN.assert_admin(deps.as_ref(), &info.sender.clone())?;
     STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
+        if state.admin != info.sender.clone() {
+            return Err(ContractError::Unauthorized {});
+        }
         state.partial_liquidation_close_percentage = value;
         Ok(state)
     })?;
@@ -537,8 +542,11 @@ pub fn try_update_partial_liquidation_penalty_percentage(
     info: MessageInfo,
     value: Decimal,
 ) -> Result<Response, ContractError> {
-    ADMIN.assert_admin(deps.as_ref(), &info.sender.clone())?;
     STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
+        if state.admin != info.sender.clone() {
+            return Err(ContractError::Unauthorized {});
+        }
+
         state.partial_liquidation_penalty_percentage = value;
         Ok(state)
     })?;
@@ -553,8 +561,10 @@ pub fn try_update_full_liquidation_penalty_percentage(
     info: MessageInfo,
     value: Decimal,
 ) -> Result<Response, ContractError> {
-    ADMIN.assert_admin(deps.as_ref(), &info.sender.clone())?;
     STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
+        if state.admin != info.sender.clone() {
+            return Err(ContractError::Unauthorized {});
+        }
         state.full_liquidation_penalty_percentage = value;
         Ok(state)
     })?;
@@ -566,8 +576,10 @@ pub fn try_update_partial_liquidation_liquidator_share_denominator(
     info: MessageInfo,
     denominator: u64,
 ) -> Result<Response, ContractError> {
-    ADMIN.assert_admin(deps.as_ref(), &info.sender.clone())?;
     STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
+        if state.admin != info.sender.clone() {
+            return Err(ContractError::Unauthorized {});
+        }
         state.partial_liquidation_liquidator_share_denominator = denominator;
         Ok(state)
     })?;
@@ -582,8 +594,10 @@ pub fn try_update_full_liquidation_liquidator_share_denominator(
     info: MessageInfo,
     denominator: u64,
 ) -> Result<Response, ContractError> {
-    ADMIN.assert_admin(deps.as_ref(), &info.sender.clone())?;
     STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
+        if state.admin != info.sender.clone() {
+            return Err(ContractError::Unauthorized {});
+        }
         state.full_liquidation_liquidator_share_denominator = denominator;
         Ok(state)
     })?;
@@ -608,7 +622,10 @@ pub fn try_update_fee(
     referrer_reward: Decimal,
     referee_discount: Decimal,
 ) -> Result<Response, ContractError> {
-    ADMIN.assert_admin(deps.as_ref(), &info.sender.clone())?;
+    let state = STATE.load(deps.storage)?;
+    if state.admin != info.sender.clone() {
+        return Err(ContractError::Unauthorized {});
+    }
     let fee_structure = FeeStructure {
         fee,
         first_tier_minimum_balance,
@@ -636,7 +653,10 @@ pub fn try_update_order_state_structure(
     reward: Decimal,
     time_based_reward_lower_bound: Uint128,
 ) -> Result<Response, ContractError> {
-    ADMIN.assert_admin(deps.as_ref(), &info.sender.clone())?;
+    let state = STATE.load(deps.storage)?;
+    if state.admin != info.sender.clone() {
+        return Err(ContractError::Unauthorized {});
+    }
     let order_state = OrderState {
         min_order_quote_asset_amount,
         reward,
@@ -656,7 +676,10 @@ pub fn try_update_market_oracle(
     oracle: String,
     oracle_source: OracleSource,
 ) -> Result<Response, ContractError> {
-    ADMIN.assert_admin(deps.as_ref(), &info.sender.clone())?;
+    let state = STATE.load(deps.storage)?;
+    if state.admin != info.sender.clone() {
+        return Err(ContractError::Unauthorized {});
+    }
     let mut market = MARKETS.load(deps.storage, market_index.to_string())?;
     market.amm.oracle = addr_validate_to_lower(deps.api, &oracle)?;
     market.amm.oracle_source = oracle_source;
@@ -677,7 +700,11 @@ pub fn try_update_oracle_guard_rails(
     confidence_interval_max_size: Uint128,
     too_volatile_ratio: i128,
 ) -> Result<Response, ContractError> {
-    ADMIN.assert_admin(deps.as_ref(), &info.sender.clone())?;
+    let state = STATE.load(deps.storage)?;
+    if state.admin != info.sender.clone() {
+        return Err(ContractError::Unauthorized {});
+    }
+
     let oracle_gr = OracleGuardRails {
         use_for_liquidations,
         mark_oracle_divergence,
@@ -698,9 +725,27 @@ pub fn try_update_max_deposit(
     info: MessageInfo,
     max_deposit: Uint128,
 ) -> Result<Response, ContractError> {
-    ADMIN.assert_admin(deps.as_ref(), &info.sender.clone())?;
     STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
+        if state.admin != info.sender.clone() {
+            return Err(ContractError::Unauthorized {});
+        }
         state.max_deposit = max_deposit;
+        Ok(state)
+    })?;
+    Ok(Response::new().add_attribute("method", "try_max_deposit"))
+}
+
+pub fn try_update_admin(
+    deps: DepsMut,
+    info: MessageInfo,
+    admin: String,
+) -> Result<Response, ContractError> {
+    let api = deps.api;
+    STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
+        if state.admin != info.sender.clone() {
+            return Err(ContractError::Unauthorized {});
+        }
+        state.admin = addr_validate_to_lower(api, &admin)?;
         Ok(state)
     })?;
     Ok(Response::new().add_attribute("method", "try_max_deposit"))
@@ -711,8 +756,11 @@ pub fn try_update_exchange_paused(
     info: MessageInfo,
     exchange_paused: bool,
 ) -> Result<Response, ContractError> {
-    ADMIN.assert_admin(deps.as_ref(), &info.sender.clone())?;
     STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
+        if state.admin != info.sender.clone() {
+            return Err(ContractError::Unauthorized {});
+        }
+
         state.exchange_paused = exchange_paused;
         Ok(state)
     })?;
@@ -723,8 +771,10 @@ pub fn try_disable_admin_control_prices(
     deps: DepsMut,
     info: MessageInfo,
 ) -> Result<Response, ContractError> {
-    ADMIN.assert_admin(deps.as_ref(), &info.sender.clone())?;
     STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
+        if state.admin != info.sender.clone() {
+            return Err(ContractError::Unauthorized {});
+        }
         state.admin_controls_prices = false;
         Ok(state)
     })?;
@@ -735,8 +785,10 @@ pub fn try_update_funding_paused(
     info: MessageInfo,
     funding_paused: bool,
 ) -> Result<Response, ContractError> {
-    ADMIN.assert_admin(deps.as_ref(), &info.sender.clone())?;
     STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
+        if state.admin != info.sender.clone() {
+            return Err(ContractError::Unauthorized {});
+        }
         state.funding_paused = funding_paused;
         Ok(state)
     })?;
@@ -749,7 +801,10 @@ pub fn try_update_market_minimum_quote_asset_trade_size(
     market_index: u64,
     minimum_trade_size: Uint128,
 ) -> Result<Response, ContractError> {
-    ADMIN.assert_admin(deps.as_ref(), &info.sender.clone())?;
+    let state = STATE.load(deps.storage)?;
+    if state.admin != info.sender.clone() {
+        return Err(ContractError::Unauthorized {});
+    }
     let mut market = MARKETS.load(deps.storage, market_index.to_string())?;
     MARKETS.update(
         deps.storage,
@@ -768,8 +823,11 @@ pub fn try_update_market_minimum_base_asset_trade_size(
     market_index: u64,
     minimum_trade_size: Uint128,
 ) -> Result<Response, ContractError> {
-    ADMIN.assert_admin(deps.as_ref(), &info.sender.clone())?;
-    // let mut market = MARKETS.load(deps.storage, market_index.to_string())?;
+    let state = STATE.load(deps.storage)?;
+    if state.admin != info.sender.clone() {
+        return Err(ContractError::Unauthorized {});
+    }
+    
     MARKETS.update(
         deps.storage,
         market_index.to_string(),
@@ -791,8 +849,11 @@ pub fn try_update_oracle_address(
     info: MessageInfo,
     oracle: String,
 ) -> Result<Response, ContractError> {
-    ADMIN.assert_admin(deps.as_ref(), &info.sender.clone())?;
     let mut state = STATE.load(deps.storage)?;
+    if state.admin != info.sender.clone() {
+        return Err(ContractError::Unauthorized {});
+    }
+    
     state.oracle = addr_validate_to_lower(deps.api, &oracle)?;
     STATE.update(deps.storage, |_state| -> Result<State, ContractError> {
         Ok(state)
@@ -806,7 +867,11 @@ pub fn try_feeding_price(
     market_index: u64,
     price: i128,
 ) -> Result<Response, ContractError> {
-    ADMIN.assert_admin(deps.as_ref(), &info.sender.clone())?;
+    let state = STATE.load(deps.storage)?;
+    if state.admin != info.sender.clone() {
+        return Err(ContractError::Unauthorized {});
+    }
+    
     let mut market = MARKETS.load(deps.storage, market_index.to_string())?;
     market.amm.last_oracle_price = Number128::new(price);
     market.amm.last_oracle_price_twap = Number128::new(price);
@@ -823,8 +888,11 @@ pub fn try_update_history_contract(
     info: MessageInfo,
     history_contract: String,
 ) -> Result<Response, ContractError> {
-    ADMIN.assert_admin(deps.as_ref(), &info.sender.clone())?;
     let mut state = STATE.load(deps.storage)?;
+    if state.admin != info.sender.clone() {
+        return Err(ContractError::Unauthorized {});
+    }
+    
     let new_history_contract = deps.api.addr_validate(&history_contract)?;
     state.history_contract = new_history_contract;
     STATE.update(deps.storage, |_s| -> Result<State, ContractError> {

@@ -1,3 +1,5 @@
+// use std::fmt::Result;
+
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
@@ -8,7 +10,7 @@ use cw2::set_contract_version;
 
 use crate::error::ContractError;
 use crate::msg::{BalanceResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{State, STATE, ADMIN};
+use crate::state::{State, STATE};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:insurance-funds";
@@ -24,13 +26,14 @@ pub fn instantiate(
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     let state = State {
+        admin: info.sender.clone(),
         total_deposit: Uint128::zero(),
         clearing_house: msg.clearing_house,
         denom_stable: msg.denom_stable,
     };
 
     STATE.save(deps.storage, &state)?;
-    ADMIN.set(deps.branch(), Some(info.sender.clone()))?;
+    // ADMIN.set(deps.branch(), Some(info.sender.clone()))?;
     Ok(Response::new()
         .add_attribute("method", "instantiate")
         .add_attribute("clearing_house", info.sender.clone())
@@ -45,10 +48,7 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::UpdateAdmin { new_admin } => {
-            let addr = deps.api.addr_validate(&new_admin)?;
-            Ok(ADMIN.execute_update_admin(deps, info,  Some(addr))?)
-        },
+        ExecuteMsg::UpdateAdmin { new_admin } => change_admin(deps, info, new_admin),
         ExecuteMsg::UpdateClearingHouse { new_clearing_house } => {
             change_clearing_house(deps, info, new_clearing_house)
         }
@@ -65,15 +65,32 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     }
 }
 
-
+pub fn change_admin(
+    deps: DepsMut,
+    info: MessageInfo,
+    new_admin: String,
+) -> Result<Response, ContractError> {
+    let api = deps.api;
+    STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
+        if state.admin != info.sender {
+            return Err(ContractError::UnauthorizedAdmin {});
+        }
+        state.admin = api.addr_validate(&new_admin)?;
+        Ok(state)
+    })?;
+    Ok(Response::new().add_attribute("method", "change_clearing_house"))
+}
 
 pub fn change_clearing_house(
     deps: DepsMut,
     info: MessageInfo,
     clearing_house: Addr,
 ) -> Result<Response, ContractError> {
-    ADMIN.assert_admin(deps.as_ref(), &info.sender.clone())?;
+    // ADMIN.assert_admin(deps.as_ref(), &info.sender.clone())?;
     STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
+        if state.admin != info.sender {
+            return Err(ContractError::UnauthorizedAdmin {});
+        }
         state.clearing_house = clearing_house.clone();
         Ok(state)
     })?;
@@ -141,10 +158,10 @@ pub fn withdraw(
 
 fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     let state = STATE.load(deps.storage)?;
-    let res = ADMIN.query_admin(deps).unwrap();
+    // let res = ADMIN.query_admin(deps).unwrap();
     Ok(ConfigResponse {
         clearing_house: state.clearing_house,
-        admin: res.admin.unwrap(),
+        admin: state.admin.to_string(),
         denom: state.denom_stable,
     })
 }

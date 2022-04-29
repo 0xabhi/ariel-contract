@@ -5,10 +5,9 @@ use cosmwasm_std::{
 };
 
 use cw2::set_contract_version;
-// use cw_utils::maybe_addr;
 
 use crate::states::constants::*;
-use crate::states::state::{State, OrderState, ADMIN, FEESTRUCTURE, ORACLEGUARDRAILS, ORDERSTATE, STATE};
+use crate::states::state::{State, OrderState, FEESTRUCTURE, ORACLEGUARDRAILS, ORDERSTATE, STATE};
 
 use crate::package::execute::{ExecuteMsg, InstantiateMsg};
 use crate::package::helper::addr_validate_to_lower;
@@ -78,6 +77,7 @@ pub fn instantiate(
         time_based_reward_lower_bound: Uint128::zero(), // minimum filler reward for time-based reward
     };
     let state = State {
+        admin: info.sender.clone(),
         exchange_paused: false,
         funding_paused: false,
         admin_controls_prices: true,
@@ -97,7 +97,6 @@ pub fn instantiate(
         markets_length: 0u64,
     };
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    ADMIN.set(deps.branch(), Some(info.sender.clone()))?;
     STATE.save(deps.storage, &state)?;
     // STATE.load(deps.storage)?;
 
@@ -284,10 +283,7 @@ pub fn execute(
             confidence_interval_max_size,
             too_volatile_ratio,
         ),
-        ExecuteMsg::UpdateAdmin { admin } => {
-            let addr = Some(deps.api.addr_validate(&admin)?);
-            Ok(ADMIN.execute_update_admin(deps, info, addr)?)
-        }
+        ExecuteMsg::UpdateAdmin { admin } => try_update_admin(deps, info, admin),
         ExecuteMsg::UpdateMaxDeposit { max_deposit } => {
             try_update_max_deposit(deps, info, max_deposit)
         }

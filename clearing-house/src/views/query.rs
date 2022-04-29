@@ -9,7 +9,7 @@ use crate::helpers::position::{
 };
 use crate::ContractError;
 use crate::states::market::{LiquidationStatus, LiquidationType, MarketStatus, MARKETS};
-use crate::states::state::{ADMIN, STATE, ORACLEGUARDRAILS, ORDERSTATE, FEESTRUCTURE};
+use crate::states::state::{STATE, ORACLEGUARDRAILS, ORDERSTATE, FEESTRUCTURE};
 use crate::states::user::{POSITIONS, USERS};
 
 use crate::package::helper::addr_validate_to_lower;
@@ -63,8 +63,9 @@ pub fn get_user_position(
 }
 
 pub fn get_admin(deps: Deps) -> Result<AdminResponse, ContractError> {
+    let state =STATE.load(deps.storage)?;
     let admin = AdminResponse {
-        admin: ADMIN.query_admin(deps).unwrap().admin.unwrap(),
+        admin: state.admin.to_string()
     };
     Ok(admin)
 }
