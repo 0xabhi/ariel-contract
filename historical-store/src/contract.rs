@@ -1,17 +1,17 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Order};
+use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, Order};
 use cw2::set_contract_version;
 use cw_storage_plus::{Bound, PrimaryKey};
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, TradeHistoryResponse, LiquidationHistoryResponse, FundingRateHistoryResponse, LengthResponse, ConfigResponse, CurveHistoryResponse, DepositHistoryResponse, FundingPaymentHistoryResponse};
 use crate::package::validate::addr_validate_to_lower;
-use crate::state::{State, STATE, TradeRecord, LiquidationRecord, FundingPaymentRecord, CurveRecord, FundingRateRecord, DepositRecord, FUNDING_RATE_HISTORY, LIQUIDATION_HISTORY, TRADE_HISTORY, LENGTH, DEPOSIT_HISTORY, FUNDING_PAYMENT_HISTORY, CURVEHISTORY};
+use crate::state::{State, STATE, TradeRecord, LiquidationRecord, FundingPaymentRecord, CurveRecord, FundingRateRecord, DepositRecord, FUNDING_RATE_HISTORY, LIQUIDATION_HISTORY, TRADE_HISTORY, LENGTH, DEPOSIT_HISTORY, FUNDING_PAYMENT_HISTORY, CURVEHISTORY, Length};
 
 // iterator limits
-pub const MAX_LIMIT: u32 = 10;
-pub const DEFAULT_LIMIT: u32 = 5;
+pub const MAX_LIMIT: u32 = 20;
+pub const DEFAULT_LIMIT: u32 = 10;
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:my-first-contract";
@@ -68,14 +68,17 @@ fn try_record_deposit(deps: DepsMut, info: MessageInfo, d: DepositRecord) -> Res
         return Err(ContractError::UnauthorizedClearingHouse {});
     };
 
-    Ok(Response::new().add_attribute("method", "record_deposit"))
-}
-
-fn try_record_funding_rate(deps: DepsMut, info: MessageInfo, f: FundingRateRecord) -> Result<Response, ContractError> {
-    let state = STATE.load(deps.storage)?;
-    if info.sender != state.clearing_house {
-        return Err(ContractError::UnauthorizedClearingHouse {});
-    };
+    let mut len = LENGTH.load(deps.storage)?;
+    let deposit_history_info_length = len.deposit_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
+    len.deposit_history_length = deposit_history_info_length;
+    LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
+        Ok(len)
+    })?;
+    DEPOSIT_HISTORY.save(
+        deps.storage,
+        (&d.user, deposit_history_info_length.to_string()),
+        &d
+    )?;
 
     Ok(Response::new().add_attribute("method", "record_deposit"))
 }
@@ -86,6 +89,18 @@ fn try_record_trade(deps: DepsMut, info: MessageInfo, t: TradeRecord) -> Result<
         return Err(ContractError::UnauthorizedClearingHouse {});
     };
 
+    let mut len = LENGTH.load(deps.storage)?;
+    let trade_history_info_length = len.trade_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
+    len.trade_history_length = trade_history_info_length;
+    LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
+        Ok(len)
+    })?;
+    TRADE_HISTORY.save(
+        deps.storage,
+        (&t.user, trade_history_info_length.to_string()),
+        &t
+    )?;
+
     Ok(Response::new().add_attribute("method", "record_deposit"))
 }
 
@@ -94,6 +109,39 @@ fn try_record_liquidation(deps: DepsMut, info: MessageInfo, l: LiquidationRecord
     if info.sender != state.clearing_house {
         return Err(ContractError::UnauthorizedClearingHouse {});
     };
+
+    let mut len = LENGTH.load(deps.storage)?;
+    let liquidation_history_info_length = len.liquidation_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
+    len.liquidation_history_length = liquidation_history_info_length;
+    LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
+        Ok(len)
+    })?;
+    LIQUIDATION_HISTORY.save(
+        deps.storage,
+        (&l.user, liquidation_history_info_length.to_string()),
+        &l
+    )?;
+
+    Ok(Response::new().add_attribute("method", "record_deposit"))
+}
+
+fn try_record_funding_rate(deps: DepsMut, info: MessageInfo, f: FundingRateRecord) -> Result<Response, ContractError> {
+    let state = STATE.load(deps.storage)?;
+    if info.sender != state.clearing_house {
+        return Err(ContractError::UnauthorizedClearingHouse {});
+    };
+
+    let mut len = LENGTH.load(deps.storage)?;
+    let funding_rate_history_info_length = len.funding_rate_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
+    len.funding_rate_history_length = funding_rate_history_info_length;
+    LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
+        Ok(len)
+    })?;
+    FUNDING_RATE_HISTORY.save(
+        deps.storage,
+        funding_rate_history_info_length.to_string(),
+        &f
+    )?;
 
     Ok(Response::new().add_attribute("method", "record_deposit"))
 }
@@ -104,6 +152,18 @@ fn try_record_funding_payment(deps: DepsMut, info: MessageInfo, f: FundingPaymen
         return Err(ContractError::UnauthorizedClearingHouse {});
     };
 
+    let mut len = LENGTH.load(deps.storage)?;
+    let funding_payment_history_info_length = len.funding_payment_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
+    len.funding_payment_history_length = funding_payment_history_info_length;
+    LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
+        Ok(len)
+    })?;
+    FUNDING_PAYMENT_HISTORY.save(
+        deps.storage,
+        (&f.user, funding_payment_history_info_length.to_string()),
+        &f,
+    )?;
+
     Ok(Response::new().add_attribute("method", "record_deposit"))
 }
 
@@ -113,23 +173,47 @@ fn try_record_curve(deps: DepsMut, info: MessageInfo, c: CurveRecord) -> Result<
         return Err(ContractError::UnauthorizedClearingHouse {});
     };
 
+    let mut len = LENGTH.load(deps.storage)?;
+    let curve_history_info_length = len.curve_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
+    len.curve_history_length = curve_history_info_length;
+    LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
+        Ok(len)
+    })?;
+    CURVEHISTORY.save(
+        deps.storage,
+        curve_history_info_length.to_string(),
+        &c
+    )?;
+
     Ok(Response::new().add_attribute("method", "record_deposit"))
 }
 
 fn try_new_clearing_house(deps: DepsMut, info: MessageInfo, new_house: String) -> Result<Response, ContractError> {
-    let state = STATE.load(deps.storage)?;
+    let mut state = STATE.load(deps.storage)?;
     if info.sender != state.owner {
         return Err(ContractError::UnauthorizedClearingHouse {});
     };
+
+    state.clearing_house = deps.api.addr_validate(&new_house)?;
+
+    STATE.update(deps.storage, |_s| -> Result<State, ContractError> {
+        Ok(state)
+    })?;
 
     Ok(Response::new().add_attribute("method", "record_deposit"))
 }
 
 fn try_new_admin(deps: DepsMut, info: MessageInfo, new_admin: String) -> Result<Response, ContractError> {
-    let state = STATE.load(deps.storage)?;
+    let mut state = STATE.load(deps.storage)?;
     if info.sender != state.owner {
         return Err(ContractError::UnauthorizedClearingHouse {});
     };
+
+    state.owner = deps.api.addr_validate(&new_admin)?;
+
+    STATE.update(deps.storage, |_s| -> Result<State, ContractError> {
+        Ok(state)
+    })?;
 
     Ok(Response::new().add_attribute("method", "record_deposit"))
 }
@@ -255,12 +339,11 @@ pub fn get_deposit_history(
     limit: Option<u32>,
 ) -> Result<Vec<DepositHistoryResponse>, ContractError> {
     let user_addr = addr_validate_to_lower(deps.api, &user_address.to_string())?;
-    let mut deposit_history: Vec<DepositHistoryResponse> = vec![];
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
     let start = start_after
         .map(|start| start.joined_key())
         .map(Bound::Exclusive);
-    deposit_history = DEPOSIT_HISTORY
+    let deposit_history = DEPOSIT_HISTORY
         .prefix(&user_addr)
         .range(deps.storage, start, None, Order::Descending)
         .filter_map(|records| {
