@@ -54,8 +54,32 @@ pub fn execute(
         ExecuteMsg::RecordLiquidation{l}=>try_record_liquidation(deps,info,l),
         ExecuteMsg::RecordTrade{t}=>try_record_trade(deps,info,t),
         ExecuteMsg::RecordDeposit { d } => try_record_deposit(deps, info, d),
+        ExecuteMsg::RecordFundingPaymentsMultiple {vecf} => try_record_funding_payment_multiple(deps, info, vecf),
         // ExecuteMsg::RecordOrder { o } => try_record_order(deps, info, o), 
     }
+}
+
+fn try_record_funding_payment_multiple(deps: DepsMut, info: MessageInfo, vecf: Vec<FundingPaymentRecord>) -> Result<Response, ContractError> {
+    let state = STATE.load(deps.storage)?;
+    if info.sender != state.clearing_house {
+        return Err(ContractError::UnauthorizedClearingHouse {});
+    };
+
+    for f in vecf.iter() {
+        let mut len = LENGTH.load(deps.storage)?;
+        let funding_payment_history_info_length = len.funding_payment_history_length.checked_add(1).ok_or_else(|| (ContractError::MathError))?;
+        len.funding_payment_history_length = funding_payment_history_info_length;
+        LENGTH.update(deps.storage, |_l| -> Result<Length, ContractError> {
+            Ok(len)
+        })?;
+        FUNDING_PAYMENT_HISTORY.save(
+            deps.storage,
+            (&f.user, funding_payment_history_info_length.to_string()),
+            f,
+        )?;    
+    }
+
+    Ok(Response::new().add_attribute("method", "record_funding_payment_records_multple"))
 }
 
 // fn try_record_order(deps: DepsMut, info: MessageInfo, o: OrderRecord) -> Result<Response, ContractError>  {
@@ -101,7 +125,7 @@ fn try_record_trade(deps: DepsMut, info: MessageInfo, t: TradeRecord) -> Result<
         &t
     )?;
 
-    Ok(Response::new().add_attribute("method", "record_deposit"))
+    Ok(Response::new().add_attribute("method", "record_trade"))
 }
 
 fn try_record_liquidation(deps: DepsMut, info: MessageInfo, l: LiquidationRecord) -> Result<Response, ContractError> {
@@ -122,7 +146,7 @@ fn try_record_liquidation(deps: DepsMut, info: MessageInfo, l: LiquidationRecord
         &l
     )?;
 
-    Ok(Response::new().add_attribute("method", "record_deposit"))
+    Ok(Response::new().add_attribute("method", "record_liquidation"))
 }
 
 fn try_record_funding_rate(deps: DepsMut, info: MessageInfo, f: FundingRateRecord) -> Result<Response, ContractError> {
@@ -143,7 +167,7 @@ fn try_record_funding_rate(deps: DepsMut, info: MessageInfo, f: FundingRateRecor
         &f
     )?;
 
-    Ok(Response::new().add_attribute("method", "record_deposit"))
+    Ok(Response::new().add_attribute("method", "record_funding_rate"))
 }
 
 fn try_record_funding_payment(deps: DepsMut, info: MessageInfo, f: FundingPaymentRecord) -> Result<Response, ContractError> {
@@ -164,7 +188,7 @@ fn try_record_funding_payment(deps: DepsMut, info: MessageInfo, f: FundingPaymen
         &f,
     )?;
 
-    Ok(Response::new().add_attribute("method", "record_deposit"))
+    Ok(Response::new().add_attribute("method", "record_funding_payment"))
 }
 
 fn try_record_curve(deps: DepsMut, info: MessageInfo, c: CurveRecord) -> Result<Response, ContractError> {
@@ -185,7 +209,7 @@ fn try_record_curve(deps: DepsMut, info: MessageInfo, c: CurveRecord) -> Result<
         &c
     )?;
 
-    Ok(Response::new().add_attribute("method", "record_deposit"))
+    Ok(Response::new().add_attribute("method", "record_curve"))
 }
 
 fn try_new_clearing_house(deps: DepsMut, info: MessageInfo, new_house: String) -> Result<Response, ContractError> {
@@ -200,7 +224,7 @@ fn try_new_clearing_house(deps: DepsMut, info: MessageInfo, new_house: String) -
         Ok(state)
     })?;
 
-    Ok(Response::new().add_attribute("method", "record_deposit"))
+    Ok(Response::new().add_attribute("method", "new_clearing_house"))
 }
 
 fn try_new_admin(deps: DepsMut, info: MessageInfo, new_admin: String) -> Result<Response, ContractError> {
@@ -215,7 +239,7 @@ fn try_new_admin(deps: DepsMut, info: MessageInfo, new_admin: String) -> Result<
         Ok(state)
     })?;
 
-    Ok(Response::new().add_attribute("method", "record_deposit"))
+    Ok(Response::new().add_attribute("method", "new_admin"))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

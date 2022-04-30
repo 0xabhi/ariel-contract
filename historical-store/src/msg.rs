@@ -29,6 +29,9 @@ pub enum ExecuteMsg {
     RecordFundingPayment {
         f: FundingPaymentRecord
     },
+    RecordFundingPaymentsMultiple {
+        vecf: Vec<FundingPaymentRecord>
+    },
     RecordFundingRate {
         f: FundingRateRecord
     },
