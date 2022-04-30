@@ -30,4 +30,7 @@ pub enum HistoryExecuteMsg {
     RecordTrade {
         t: TradeRecord
     },
+    RecordFundingPaymentsMultiple {
+        vecf: Vec<FundingPaymentRecord>
+    },
 }

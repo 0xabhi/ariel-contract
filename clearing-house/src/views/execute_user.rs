@@ -86,14 +86,12 @@ pub fn try_deposit_collateral(
 
     let f = controller::funding::settle_funding_payment(&mut deps, &user_address, now)?;
     let mut messages: Vec<CosmosMsg> = vec![];
-    for fp in f {
-        let message: CosmosMsg = CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: state.history_contract.clone().to_string(),
-            msg: to_binary(&HistoryExecuteMsg::RecordFundingPayment { f: fp })?,
-            funds: vec![],
-        });
-        messages.push(message);
-    }
+    let fm: CosmosMsg = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: state.history_contract.clone().to_string(),
+        msg: to_binary(&HistoryExecuteMsg::RecordFundingPaymentsMultiple { vecf: f })?,
+        funds: vec![],
+    });
+    messages.push(fm);
     let message: CosmosMsg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: state.insurance_vault.to_string(),
         msg: to_binary(&VaultInterface::Deposit {})?,
@@ -141,14 +139,12 @@ pub fn try_withdraw_collateral(
     let state = STATE.load(deps.storage)?;
     let f = controller::funding::settle_funding_payment(&mut deps, &user_address, now)?;
     let mut messages: Vec<CosmosMsg> = vec![];
-    for fp in f {
-        let message: CosmosMsg = CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: state.history_contract.clone().to_string(),
-            msg: to_binary(&HistoryExecuteMsg::RecordFundingPayment { f: fp })?,
-            funds: vec![],
-        });
-        messages.push(message);
-    }
+    let message: CosmosMsg = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: state.history_contract.clone().to_string(),
+        msg: to_binary(&HistoryExecuteMsg::RecordFundingPaymentsMultiple { vecf: f })?,
+        funds: vec![],
+    });
+    messages.push(message);
     user = USERS.may_load(deps.storage, &user_address)?.unwrap();
 
     if (amount as u128) > user.collateral.u128() {
@@ -246,14 +242,12 @@ pub fn try_open_position(
     }
     let f = controller::funding::settle_funding_payment(&mut deps, &user_address, now)?;
     let mut messages: Vec<CosmosMsg> = vec![];
-    for fp in f {
-        let message: CosmosMsg = CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: state.history_contract.clone().to_string(),
-            msg: to_binary(&HistoryExecuteMsg::RecordFundingPayment { f: fp })?,
-            funds: vec![],
-        });
-        messages.push(message);
-    }
+    let message: CosmosMsg = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: state.history_contract.clone().to_string(),
+        msg: to_binary(&HistoryExecuteMsg::RecordFundingPaymentsMultiple { vecf: f })?,
+        funds: vec![],
+    });
+    messages.push(message);
     let position_index = market_index.clone();
     let mark_price_before: Uint128;
     let oracle_mark_spread_pct_before: i128;
@@ -466,14 +460,12 @@ pub fn try_close_position(
     let fee_structure = FEESTRUCTURE.load(deps.storage)?;
     let f = controller::funding::settle_funding_payment(&mut deps, &user_address, now)?;
     let mut messages: Vec<CosmosMsg> = vec![];
-    for fp in f {
-        let message: CosmosMsg = CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: state.history_contract.clone().to_string(),
-            msg: to_binary(&HistoryExecuteMsg::RecordFundingPayment { f: fp })?,
-            funds: vec![],
-        });
-        messages.push(message);
-    }
+    let message: CosmosMsg = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: state.history_contract.clone().to_string(),
+        msg: to_binary(&HistoryExecuteMsg::RecordFundingPaymentsMultiple { vecf: f })?,
+        funds: vec![],
+    });
+    messages.push(message);
     let position_index = market_index.clone();
     let market_position = POSITIONS.load(
         deps.storage,
@@ -1194,14 +1186,12 @@ pub fn try_liquidate(
         messages.push(message);
     }
 
-    for fp in f {
-        let message: CosmosMsg = CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: state.history_contract.clone().to_string(),
-            msg: to_binary(&HistoryExecuteMsg::RecordFundingPayment { f: fp })?,
-            funds: vec![],
-        });
-        messages.push(message);
-    }
+    let message: CosmosMsg = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: state.history_contract.clone().to_string(),
+        msg: to_binary(&HistoryExecuteMsg::RecordFundingPaymentsMultiple { vecf: f })?,
+        funds: vec![],
+    });
+    messages.push(message);
 
     LiquidationRecord {
         ts: now,
@@ -1234,14 +1224,12 @@ pub fn try_settle_funding_payment(
     let f = controller::funding::settle_funding_payment(&mut deps, &user_address, now)?;
     let state = STATE.load(deps.storage)?;
     let mut messages: Vec<CosmosMsg> = vec![];
-    for fp in f {
-        let message: CosmosMsg = CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: state.history_contract.clone().to_string(),
-            msg: to_binary(&HistoryExecuteMsg::RecordFundingPayment { f: fp })?,
-            funds: vec![],
-        });
-        messages.push(message);
-    }
+    let message: CosmosMsg = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: state.history_contract.clone().to_string(),
+        msg: to_binary(&HistoryExecuteMsg::RecordFundingPaymentsMultiple { vecf: f })?,
+        funds: vec![],
+    });
+    messages.push(message);
 
     Ok(Response::new()
         .add_messages(messages)
